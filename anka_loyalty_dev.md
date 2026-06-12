@@ -299,7 +299,7 @@ Bu plan Cursor/Claude ile gün gün ilerlemek üzere tasarlanmıştır:
 
 **Gün 1 — Kurulum & İskelet**
 - [ ] Shopify Partner hesabında ilk custom app kaydı (dev store ile)
-- [ ] Remix app scaffold (`@shopify/shopify-app-remix` template)
+- [x] Remix app scaffold (`@shopify/shopify-app-remix` template)
 - [ ] GitHub repo + Railway deploy pipeline
 - [ ] Supabase projesi + env değişkenleri
 - [ ] Sentry kurulumu
