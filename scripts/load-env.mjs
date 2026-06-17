@@ -22,8 +22,16 @@ export function loadEnvFile(filename = ".env") {
     const key = trimmed.slice(0, separator).trim();
     const value = trimmed.slice(separator + 1).trim();
 
-    if (key && !process.env[key]) {
-      process.env[key] = value;
-    }
+    if (!key) continue;
+
+    // Cift tirnak icindeki degerleri ayikla
+    const unquoted =
+      value.length >= 2 &&
+      ((value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'")))
+        ? value.slice(1, -1)
+        : value;
+
+    process.env[key] = unquoted;
   }
 }

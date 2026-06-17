@@ -6,6 +6,8 @@ import {
 } from "@shopify/shopify-app-remix/server";
 import { PrismaSessionStorage } from "@shopify/shopify-app-session-storage-prisma";
 import prisma from "./db.server";
+import { upsertStoreOnInstall } from "./lib/store.server";
+import { captureException } from "./lib/sentry.server";
 
 const shopify = shopifyApp({
   apiKey: process.env.SHOPIFY_API_KEY,
@@ -19,6 +21,19 @@ const shopify = shopifyApp({
   future: {
     unstable_newEmbeddedAuthStrategy: true,
     expiringOfflineAccessTokens: true,
+  },
+  hooks: {
+    afterAuth: async ({ session }) => {
+      try {
+        await upsertStoreOnInstall({ shopDomain: session.shop });
+      } catch (error) {
+        captureException(error, {
+          scope: "afterAuth.upsertStore",
+          shop: session.shop,
+        });
+        console.error("[afterAuth] store upsert failed:", error);
+      }
+    },
   },
   ...(process.env.SHOP_CUSTOM_DOMAIN
     ? { customShopDomains: [process.env.SHOP_CUSTOM_DOMAIN] }
