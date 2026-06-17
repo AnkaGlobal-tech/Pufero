@@ -26,3 +26,5 @@ pnpm-lock.yaml
 
 # Internal dev plan — work repo'ya gönderilmez
 anka_loyalty_dev.md
+
+.cursor/
