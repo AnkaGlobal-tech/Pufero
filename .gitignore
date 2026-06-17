@@ -23,3 +23,6 @@ pnpm-lock.yaml
 # Ignore shopify files created during app dev
 .shopify/*
 .shopify.lock
+
+# Internal dev plan — work repo'ya gönderilmez
+anka_loyalty_dev.md

@@ -1,3 +1,4 @@
+import "../instrument.server.mjs";
 import { PassThrough } from "stream";
 import { renderToPipeableStream } from "react-dom/server";
 import { RemixServer } from "@remix-run/react";
@@ -6,9 +7,19 @@ import {
   type EntryContext,
 } from "@remix-run/node";
 import { isbot } from "isbot";
+import * as Sentry from "@sentry/remix";
 import { addDocumentResponseHeaders } from "./shopify.server";
 
 export const streamTimeout = 5000;
+
+export const handleError = Sentry.wrapHandleErrorWithSentry(
+  (error, { request }) => {
+    console.error(error);
+    if (!request.signal.aborted) {
+      console.error(`Unhandled error for ${request.url}`);
+    }
+  },
+);
 
 export default async function handleRequest(
   request: Request,
