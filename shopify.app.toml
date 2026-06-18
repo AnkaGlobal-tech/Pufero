@@ -9,6 +9,13 @@ embedded = true
 automatically_update_urls_on_dev = true
 include_config_on_deploy = true
 
+[access_scopes]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = "write_products,read_orders"
+
+[auth]
+redirect_urls = [ "https://shopify.dev/apps/default-app-home/api/auth" ]
+
 [webhooks]
 api_version = "2026-07"
 
@@ -20,9 +27,30 @@ api_version = "2026-07"
   topics = [ "app/scopes_update" ]
   uri = "/webhooks/app/scopes_update"
 
-[access_scopes]
-# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = "write_products"
+  [[webhooks.subscriptions]]
+  topics = [ "orders/create" ]
+  uri = "/webhooks/orders/create"
 
-[auth]
-redirect_urls = [ "https://shopify.dev/apps/default-app-home/api/auth" ]
+  [[webhooks.subscriptions]]
+  topics = [ "orders/cancelled" ]
+  uri = "/webhooks/orders/cancelled"
+
+  [[webhooks.subscriptions]]
+  topics = [ "orders/edited" ]
+  uri = "/webhooks/orders/edited"
+
+  [[webhooks.subscriptions]]
+  topics = [ "refunds/create" ]
+  uri = "/webhooks/refunds/create"
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/customers/data_request"
+  compliance_topics = [ "customers/data_request" ]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/customers/redact"
+  compliance_topics = [ "customers/redact" ]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/shop/redact"
+  compliance_topics = [ "shop/redact" ]

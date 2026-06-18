@@ -51,7 +51,9 @@ Bonus carpani kampanyalari. `multiplier`, tarih araligi, opsiyonel `collection_i
 Puan haric tutulan urun/koleksiyonlar.
 
 ### `webhook_events`
-Shopify webhook idempotency (`shopify_webhook_id` unique).
+Shopify webhook idempotency (`shopify_webhook_id` unique). `next_retry_at` ile internal retry kuyrugu.
+
+**`webhook_event_status`:** `received` · `processing` · `processed` · `failed`
 
 ### `klaviyo_events`
 Klaviyo entegrasyonu oncesi event log. `synced_at IS NULL` = henuz akitilmamis.
