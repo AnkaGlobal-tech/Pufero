@@ -1,21 +1,23 @@
-FROM node:18-alpine
-RUN apk add --no-cache openssl
+FROM node:22-alpine
 
-EXPOSE 3000
+RUN apk add --no-cache openssl
 
 WORKDIR /app
 
-ENV NODE_ENV=production
-
+# Tum bagimliliklari kur (build icin vite vb. devDependencies gerekli).
+# npm install kullaniyoruz: lock dosyasi platforma ozgu opsiyonel bagimliliklari
+# (lightningcss/@emnapi gibi) macOS'ta uretildiginde Linux build'de npm ci ile
+# senkron sorunu cikariyor.
 COPY package.json package-lock.json* ./
-
-RUN npm ci --omit=dev && npm cache clean --force
-# Remove CLI packages since we don't need them in production by default.
-# Remove this line if you want to run CLI commands in your container.
-RUN npm remove @shopify/cli
+RUN npm install --no-audit --no-fund && npm cache clean --force
 
 COPY . .
 
 RUN npm run build
 
+# Production runtime ayarlari (build sonrasi, dev deps build'de kullanildi).
+ENV NODE_ENV=production
+EXPOSE 3000
+
+# docker-start = prisma generate + remix-serve (instrument.server.mjs ile)
 CMD ["npm", "run", "docker-start"]

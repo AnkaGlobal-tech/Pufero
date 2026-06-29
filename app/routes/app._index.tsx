@@ -1,331 +1,267 @@
-import { useEffect } from "react";
-import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
-import { useFetcher } from "@remix-run/react";
+import type { LoaderFunctionArgs } from "@remix-run/node";
+import { useLoaderData } from "@remix-run/react";
 import {
   Page,
   Layout,
   Text,
   Card,
-  Button,
   BlockStack,
+  InlineGrid,
+  Badge,
   Box,
-  List,
-  Link,
   InlineStack,
+  ProgressBar,
+  EmptyState,
+  Banner,
 } from "@shopify/polaris";
-import { TitleBar, useAppBridge } from "@shopify/app-bridge-react";
+import { TitleBar } from "@shopify/app-bridge-react";
+
 import { authenticate } from "../shopify.server";
+import { getStoreByDomain } from "../lib/store.server";
+import {
+  getDashboardStats,
+  getRecentActivity,
+  type DashboardStats,
+  type ActivityItem,
+} from "../lib/dashboard.server";
+import { syncPendingDraftOrders } from "../lib/orders.server";
+import { processBirthdayBonuses } from "../lib/bonus-rules.server";
+import { backfillMissingTiers } from "../lib/tier-engine.server";
+import { processPointsExpiry } from "../lib/expiry-engine.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  await authenticate.admin(request);
+  const { admin, session } = await authenticate.admin(request);
+  const store = await getStoreByDomain(session.shop);
 
-  return null;
-};
+  if (!store) {
+    return {
+      shop: session.shop,
+      missingStore: true,
+      stats: null,
+      activity: [] as ActivityItem[],
+    };
+  }
 
-export const action = async ({ request }: ActionFunctionArgs) => {
-  const { admin } = await authenticate.admin(request);
-  const color = ["Red", "Orange", "Yellow", "Green"][
-    Math.floor(Math.random() * 4)
-  ];
-  const response = await admin.graphql(
-    `#graphql
-      mutation populateProduct($product: ProductCreateInput!) {
-        productCreate(product: $product) {
-          product {
-            id
-            title
-            handle
-            status
-            variants(first: 10) {
-              edges {
-                node {
-                  id
-                  price
-                  barcode
-                  createdAt
-                }
-              }
-            }
-          }
-        }
-      }`,
-    {
-      variables: {
-        product: {
-          title: `${color} Snowboard`,
-        },
-      },
-    },
-  );
-  const responseJson = await response.json();
+  await syncPendingDraftOrders({ admin, store, limit: 25 });
+  await processBirthdayBonuses(store.id);
+  await processPointsExpiry(store.id);
+  await backfillMissingTiers({
+    storeId: store.id,
+    shopDomain: store.shop_domain,
+    limit: 50,
+  });
 
-  const product = responseJson.data!.productCreate!.product!;
-  const variantId = product.variants.edges[0]!.node!.id!;
-
-  const variantResponse = await admin.graphql(
-    `#graphql
-    mutation shopifyRemixTemplateUpdateVariant($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
-      productVariantsBulkUpdate(productId: $productId, variants: $variants) {
-        productVariants {
-          id
-          price
-          barcode
-          createdAt
-        }
-      }
-    }`,
-    {
-      variables: {
-        productId: product.id,
-        variants: [{ id: variantId, price: "100.00" }],
-      },
-    },
-  );
-
-  const variantResponseJson = await variantResponse.json();
+  const [stats, activity] = await Promise.all([
+    getDashboardStats(store.id),
+    getRecentActivity(store.id, 10),
+  ]);
 
   return {
-    product: responseJson!.data!.productCreate!.product,
-    variant:
-      variantResponseJson!.data!.productVariantsBulkUpdate!.productVariants,
+    shop: session.shop,
+    missingStore: false,
+    storeName: store.name,
+    programPaused: store.program_paused,
+    stats,
+    activity,
   };
 };
 
-export default function Index() {
-  const fetcher = useFetcher<typeof action>();
+const numberFormatter = new Intl.NumberFormat("tr-TR");
 
-  const shopify = useAppBridge();
-  const isLoading =
-    ["loading", "submitting"].includes(fetcher.state) &&
-    fetcher.formMethod === "POST";
-  const productId = fetcher.data?.product?.id.replace(
-    "gid://shopify/Product/",
-    "",
+function fmt(n: number): string {
+  return numberFormatter.format(n);
+}
+
+const MOVEMENT_LABELS: Record<string, { label: string; tone: "success" | "critical" | "info" | "warning" }> = {
+  earn: { label: "Kazanım", tone: "success" },
+  redeem: { label: "Harcama", tone: "info" },
+  refund_reversal: { label: "İade düzeltmesi", tone: "warning" },
+  cancel_reversal: { label: "İptal düzeltmesi", tone: "warning" },
+  expired: { label: "Yanan", tone: "critical" },
+  manual: { label: "Manuel", tone: "info" },
+};
+
+function StatCard({ label, value, suffix }: { label: string; value: string; suffix?: string }) {
+  return (
+    <Card>
+      <BlockStack gap="100">
+        <Text as="p" variant="bodySm" tone="subdued">
+          {label}
+        </Text>
+        <InlineStack gap="100" blockAlign="baseline">
+          <Text as="p" variant="heading2xl">
+            {value}
+          </Text>
+          {suffix ? (
+            <Text as="span" variant="bodySm" tone="subdued">
+              {suffix}
+            </Text>
+          ) : null}
+        </InlineStack>
+      </BlockStack>
+    </Card>
   );
+}
 
-  useEffect(() => {
-    if (productId) {
-      shopify.toast.show("Product created");
-    }
-  }, [productId, shopify]);
-  const generateProduct = () => fetcher.submit({}, { method: "POST" });
+function TierDistribution({ stats }: { stats: DashboardStats }) {
+  const total = stats.tier_distribution.reduce((s, t) => s + t.count, 0);
 
   return (
-    <Page>
-      <TitleBar title="Remix app template">
-        <button variant="primary" onClick={generateProduct}>
-          Generate a product
-        </button>
-      </TitleBar>
-      <BlockStack gap="500">
+    <Card>
+      <BlockStack gap="300">
+        <Text as="h2" variant="headingMd">
+          Tier Dağılımı
+        </Text>
+        {total === 0 ? (
+          <Text as="p" tone="subdued" variant="bodySm">
+            —
+          </Text>
+        ) : (
+          <BlockStack gap="300">
+            {stats.tier_distribution.map((tier) => {
+              const pct = total > 0 ? Math.round((tier.count / total) * 100) : 0;
+              return (
+                <BlockStack gap="100" key={tier.slug}>
+                  <InlineStack align="space-between">
+                    <Text as="span" variant="bodySm">
+                      {tier.name}
+                    </Text>
+                    <Text as="span" variant="bodySm" tone="subdued">
+                      {fmt(tier.count)} ({pct}%)
+                    </Text>
+                  </InlineStack>
+                  <ProgressBar progress={pct} size="small" tone="primary" />
+                </BlockStack>
+              );
+            })}
+          </BlockStack>
+        )}
+      </BlockStack>
+    </Card>
+  );
+}
+
+function RecentActivity({ activity }: { activity: ActivityItem[] }) {
+  return (
+    <Card padding="0">
+      <Box padding="400">
+        <Text as="h2" variant="headingMd">
+          Son Aktiviteler
+        </Text>
+      </Box>
+      {activity.length === 0 ? (
+        <Box padding="400" paddingBlockStart="0">
+          <Text as="p" tone="subdued" variant="bodySm">
+            —
+          </Text>
+        </Box>
+      ) : (
+        <BlockStack gap="0">
+          {activity.map((item) => {
+            const meta = MOVEMENT_LABELS[item.movement_type] ?? {
+              label: item.movement_type,
+              tone: "info" as const,
+            };
+            const positive = item.points >= 0;
+            return (
+              <Box
+                key={item.id}
+                padding="400"
+                borderBlockStartWidth="025"
+                borderColor="border"
+              >
+                <InlineStack align="space-between" blockAlign="center" gap="300">
+                  <BlockStack gap="050">
+                    <InlineStack gap="200" blockAlign="center">
+                      <Text as="span" variant="bodyMd" fontWeight="medium">
+                        {item.customer_name}
+                      </Text>
+                      <Badge tone={meta.tone}>{meta.label}</Badge>
+                    </InlineStack>
+                    <Text as="span" variant="bodySm" tone="subdued">
+                      {item.description ?? "—"}
+                    </Text>
+                  </BlockStack>
+                  <Text
+                    as="span"
+                    variant="bodyMd"
+                    fontWeight="semibold"
+                    tone={positive ? "success" : "critical"}
+                  >
+                    {positive ? "+" : ""}
+                    {fmt(item.points)}
+                  </Text>
+                </InlineStack>
+              </Box>
+            );
+          })}
+        </BlockStack>
+      )}
+    </Card>
+  );
+}
+
+export default function Dashboard() {
+  const data = useLoaderData<typeof loader>();
+
+  if (data.missingStore || !data.stats) {
+    return (
+      <Page>
+        <TitleBar title="Anka Loyalty" />
+        <Card>
+          <EmptyState
+            heading="Mağaza kaydı bulunamadı"
+            image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
+          >
+            <p>
+              Bu mağaza için henüz bir Anka Loyalty kaydı yok. Uygulamayı yeniden
+              kurmayı deneyin.
+            </p>
+          </EmptyState>
+        </Card>
+      </Page>
+    );
+  }
+
+  const { stats, activity, programPaused, storeName } = data;
+
+  return (
+    <Page title="Dashboard" subtitle={storeName ?? data.shop}>
+      <TitleBar title="Anka Loyalty" />
+      <BlockStack gap="400">
+        {programPaused ? (
+          <Banner tone="warning" title="Program duraklatılmış">
+            <p>Yeni siparişler için puan kazanımı şu anda durdurulmuş durumda.</p>
+          </Banner>
+        ) : null}
+
         <Layout>
           <Layout.Section>
-            <Card>
-              <BlockStack gap="500">
-                <BlockStack gap="200">
-                  <Text as="h2" variant="headingMd">
-                    Congrats on creating a new Shopify app 🎉
-                  </Text>
-                  <Text variant="bodyMd" as="p">
-                    This embedded app template uses{" "}
-                    <Link
-                      url="https://shopify.dev/docs/apps/tools/app-bridge"
-                      target="_blank"
-                      removeUnderline
-                    >
-                      App Bridge
-                    </Link>{" "}
-                    interface examples like an{" "}
-                    <Link url="/app/additional" removeUnderline>
-                      additional page in the app nav
-                    </Link>
-                    , as well as an{" "}
-                    <Link
-                      url="https://shopify.dev/docs/api/admin-graphql"
-                      target="_blank"
-                      removeUnderline
-                    >
-                      Admin GraphQL
-                    </Link>{" "}
-                    mutation demo, to provide a starting point for app
-                    development.
-                  </Text>
-                </BlockStack>
-                <BlockStack gap="200">
-                  <Text as="h3" variant="headingMd">
-                    Get started with products
-                  </Text>
-                  <Text as="p" variant="bodyMd">
-                    Generate a product with GraphQL and get the JSON output for
-                    that product. Learn more about the{" "}
-                    <Link
-                      url="https://shopify.dev/docs/api/admin-graphql/latest/mutations/productCreate"
-                      target="_blank"
-                      removeUnderline
-                    >
-                      productCreate
-                    </Link>{" "}
-                    mutation in our API references.
-                  </Text>
-                </BlockStack>
-                <InlineStack gap="300">
-                  <Button loading={isLoading} onClick={generateProduct}>
-                    Generate a product
-                  </Button>
-                  {fetcher.data?.product && (
-                    <Button
-                      url={`shopify:admin/products/${productId}`}
-                      target="_blank"
-                      variant="plain"
-                    >
-                      View product
-                    </Button>
-                  )}
-                </InlineStack>
-                {fetcher.data?.product && (
-                  <>
-                    <Text as="h3" variant="headingMd">
-                      {" "}
-                      productCreate mutation
-                    </Text>
-                    <Box
-                      padding="400"
-                      background="bg-surface-active"
-                      borderWidth="025"
-                      borderRadius="200"
-                      borderColor="border"
-                      overflowX="scroll"
-                    >
-                      <pre style={{ margin: 0 }}>
-                        <code>
-                          {JSON.stringify(fetcher.data.product, null, 2)}
-                        </code>
-                      </pre>
-                    </Box>
-                    <Text as="h3" variant="headingMd">
-                      {" "}
-                      productVariantsBulkUpdate mutation
-                    </Text>
-                    <Box
-                      padding="400"
-                      background="bg-surface-active"
-                      borderWidth="025"
-                      borderRadius="200"
-                      borderColor="border"
-                      overflowX="scroll"
-                    >
-                      <pre style={{ margin: 0 }}>
-                        <code>
-                          {JSON.stringify(fetcher.data.variant, null, 2)}
-                        </code>
-                      </pre>
-                    </Box>
-                  </>
-                )}
-              </BlockStack>
-            </Card>
-          </Layout.Section>
-          <Layout.Section variant="oneThird">
-            <BlockStack gap="500">
+            <BlockStack gap="400">
+              <InlineGrid columns={{ xs: 1, sm: 2, md: 4 }} gap="400">
+                <StatCard label="Toplam Üye" value={fmt(stats.total_members)} />
+                <StatCard label="Aktif Üye" value={fmt(stats.active_members)} suffix="sipariş vermiş" />
+                <StatCard label="Dağıtılan Puan" value={fmt(stats.points_earned)} />
+                <StatCard label="Harcanan/İade" value={fmt(stats.points_redeemed)} />
+              </InlineGrid>
+
               <Card>
                 <BlockStack gap="200">
                   <Text as="h2" variant="headingMd">
-                    App template specs
+                    Dolaşımdaki Net Puan
                   </Text>
-                  <BlockStack gap="200">
-                    <InlineStack align="space-between">
-                      <Text as="span" variant="bodyMd">
-                        Framework
-                      </Text>
-                      <Link
-                        url="https://remix.run"
-                        target="_blank"
-                        removeUnderline
-                      >
-                        Remix
-                      </Link>
-                    </InlineStack>
-                    <InlineStack align="space-between">
-                      <Text as="span" variant="bodyMd">
-                        Database
-                      </Text>
-                      <Link
-                        url="https://www.prisma.io/"
-                        target="_blank"
-                        removeUnderline
-                      >
-                        Prisma
-                      </Link>
-                    </InlineStack>
-                    <InlineStack align="space-between">
-                      <Text as="span" variant="bodyMd">
-                        Interface
-                      </Text>
-                      <span>
-                        <Link
-                          url="https://polaris.shopify.com"
-                          target="_blank"
-                          removeUnderline
-                        >
-                          Polaris
-                        </Link>
-                        {", "}
-                        <Link
-                          url="https://shopify.dev/docs/apps/tools/app-bridge"
-                          target="_blank"
-                          removeUnderline
-                        >
-                          App Bridge
-                        </Link>
-                      </span>
-                    </InlineStack>
-                    <InlineStack align="space-between">
-                      <Text as="span" variant="bodyMd">
-                        API
-                      </Text>
-                      <Link
-                        url="https://shopify.dev/docs/api/admin-graphql"
-                        target="_blank"
-                        removeUnderline
-                      >
-                        GraphQL API
-                      </Link>
-                    </InlineStack>
-                  </BlockStack>
+                  <Text as="p" variant="heading2xl" tone="success">
+                    {fmt(stats.net_points)}
+                  </Text>
                 </BlockStack>
               </Card>
-              <Card>
-                <BlockStack gap="200">
-                  <Text as="h2" variant="headingMd">
-                    Next steps
-                  </Text>
-                  <List>
-                    <List.Item>
-                      Build an{" "}
-                      <Link
-                        url="https://shopify.dev/docs/apps/getting-started/build-app-example"
-                        target="_blank"
-                        removeUnderline
-                      >
-                        {" "}
-                        example app
-                      </Link>{" "}
-                      to get started
-                    </List.Item>
-                    <List.Item>
-                      Explore Shopify’s API with{" "}
-                      <Link
-                        url="https://shopify.dev/docs/apps/tools/graphiql-admin-api"
-                        target="_blank"
-                        removeUnderline
-                      >
-                        GraphiQL
-                      </Link>
-                    </List.Item>
-                  </List>
-                </BlockStack>
-              </Card>
+
+              <RecentActivity activity={activity} />
             </BlockStack>
+          </Layout.Section>
+
+          <Layout.Section variant="oneThird">
+            <TierDistribution stats={stats} />
           </Layout.Section>
         </Layout>
       </BlockStack>

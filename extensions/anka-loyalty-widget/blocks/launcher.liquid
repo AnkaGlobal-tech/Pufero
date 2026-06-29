@@ -1,0 +1,16 @@
+<div id="anka-loyalty-root" aria-live="polite"></div>
+{{ 'anka-widget.css' | asset_url | stylesheet_tag }}
+<script src="{{ 'anka-widget.js' | asset_url }}" defer></script>
+
+{% schema %}
+{
+  "name": "Anka Loyalty",
+  "target": "body",
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "Renk, konum ve nudge metni Anka Loyalty admin panelinden yönetilir. Temayı kaydettikten sonra Online Store → Customize → App embeds bölümünden etkinleştirin."
+    }
+  ]
+}
+{% endschema %}

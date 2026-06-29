@@ -2,46 +2,14 @@
 
 client_id = "5704acdc5b919866c7e0326332666fd4"
 name = "Anka Loyalty"
-application_url = "https://shopify.dev/apps/default-app-home"
+application_url = "https://anka-loyalty-production.up.railway.app"
 embedded = true
 
 [build]
 automatically_update_urls_on_dev = true
-include_config_on_deploy = true
-
-[access_scopes]
-# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = "write_products,read_orders"
-
-[auth]
-redirect_urls = [ "https://shopify.dev/apps/default-app-home/api/auth" ]
 
 [webhooks]
 api_version = "2026-07"
-
-  [[webhooks.subscriptions]]
-  topics = [ "app/uninstalled" ]
-  uri = "/webhooks/app/uninstalled"
-
-  [[webhooks.subscriptions]]
-  topics = [ "app/scopes_update" ]
-  uri = "/webhooks/app/scopes_update"
-
-  [[webhooks.subscriptions]]
-  topics = [ "orders/create" ]
-  uri = "/webhooks/orders/create"
-
-  [[webhooks.subscriptions]]
-  topics = [ "orders/cancelled" ]
-  uri = "/webhooks/orders/cancelled"
-
-  [[webhooks.subscriptions]]
-  topics = [ "orders/edited" ]
-  uri = "/webhooks/orders/edited"
-
-  [[webhooks.subscriptions]]
-  topics = [ "refunds/create" ]
-  uri = "/webhooks/refunds/create"
 
   [[webhooks.subscriptions]]
   uri = "/webhooks/customers/data_request"
@@ -54,3 +22,59 @@ api_version = "2026-07"
   [[webhooks.subscriptions]]
   uri = "/webhooks/shop/redact"
   compliance_topics = [ "shop/redact" ]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/app/scopes_update"
+  topics = [ "app/scopes_update" ]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/app/uninstalled"
+  topics = [ "app/uninstalled" ]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/orders/cancelled"
+  topics = [ "orders/cancelled" ]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/orders/create"
+  topics = [ "orders/create" ]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/orders/edited"
+  topics = [ "orders/edited" ]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/refunds/create"
+  topics = [ "refunds/create" ]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/draft_orders/create"
+  topics = [ "draft_orders/create" ]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/draft_orders/delete"
+  topics = [ "draft_orders/delete" ]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/customers/create"
+  topics = [ "customers/create" ]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/customers/update"
+  topics = [ "customers/update" ]
+
+[access_scopes]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = "write_products,read_products,read_orders,read_draft_orders,read_customers,write_customers,write_discounts"
+
+[app_proxy]
+url = "https://anka-loyalty-production.up.railway.app/apps/anka"
+subpath = "anka"
+prefix = "apps"
+
+[auth]
+redirect_urls = [
+  "https://anka-loyalty-production.up.railway.app/auth/callback",
+  "https://anka-loyalty-production.up.railway.app/auth/shopify/callback",
+  "https://anka-loyalty-production.up.railway.app/api/auth/callback"
+]
