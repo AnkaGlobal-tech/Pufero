@@ -6,6 +6,12 @@ import {
   parseWidgetSettings,
   type WidgetSettings,
 } from "./widget-settings";
+import {
+  resolveWidgetCopy,
+  interpolateCopy,
+  normalizeLocaleCode,
+  type WidgetLocaleCopy,
+} from "./widget-i18n";
 
 function toNumber(value: unknown): number {
   if (value == null) return 0;
@@ -80,6 +86,9 @@ export interface WidgetPayload {
   enabled: boolean;
   programPaused: boolean;
   settings: WidgetSettings;
+  locale: string;
+  currency: string;
+  copy: WidgetLocaleCopy;
   pointsPerDollar: number;
   pointsToDollarRatio: number;
   isMember: boolean;
@@ -113,6 +122,8 @@ async function getCustomerBalance(
 export async function getWidgetPayload(params: {
   storeId: string;
   shopifyCustomerId: number | null;
+  locale?: string | null;
+  currency?: string | null;
 }): Promise<WidgetPayload> {
   const supabase = getSupabaseAdmin();
 
@@ -129,11 +140,26 @@ export async function getWidgetPayload(params: {
   }
 
   const settings = parseWidgetSettings(store.widget_settings);
+  const { locale, copy } = resolveWidgetCopy(
+    settings.locales,
+    settings.default_locale,
+    params.locale ?? settings.default_locale,
+  );
+  const currency = (params.currency ?? "USD").toUpperCase();
+  const pointsPerDollar = toNumber(store.points_per_dollar);
+
+  const guestBody = interpolateCopy(copy.guest_body, {
+    points_per_dollar: Math.floor(pointsPerDollar),
+  });
+
   const base: Omit<WidgetPayload, "isMember" | "member" | "guest"> = {
     enabled: settings.enabled,
     programPaused: Boolean(store.program_paused),
     settings,
-    pointsPerDollar: toNumber(store.points_per_dollar),
+    locale,
+    currency,
+    copy,
+    pointsPerDollar,
     pointsToDollarRatio: toNumber(store.points_to_dollar_ratio),
   };
 
@@ -143,11 +169,8 @@ export async function getWidgetPayload(params: {
       isMember: false,
       member: null,
       guest: {
-        headline: settings.guest_headline,
-        body: settings.guest_body.replace(
-          /\{\{points_per_dollar\}\}/g,
-          String(Math.floor(toNumber(store.points_per_dollar))),
-        ),
+        headline: copy.guest_headline,
+        body: guestBody,
         registerUrl: "/account/register",
         loginUrl: "/account/login",
       },
@@ -173,11 +196,8 @@ export async function getWidgetPayload(params: {
       isMember: false,
       member: null,
       guest: {
-        headline: settings.guest_headline,
-        body: settings.guest_body.replace(
-          /\{\{points_per_dollar\}\}/g,
-          String(Math.floor(toNumber(store.points_per_dollar))),
-        ),
+        headline: copy.guest_headline,
+        body: guestBody,
         registerUrl: "/account/register",
         loginUrl: "/account/login",
       },

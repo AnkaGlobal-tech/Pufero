@@ -27,6 +27,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       shopifyCustomerId != null && Number.isFinite(shopifyCustomerId)
         ? shopifyCustomerId
         : null,
+    locale: url.searchParams.get("locale"),
+    currency: url.searchParams.get("currency"),
   });
 
   return json(payload, {

@@ -1,4 +1,9 @@
-<div id="anka-loyalty-root" aria-live="polite"></div>
+<div
+  id="anka-loyalty-root"
+  aria-live="polite"
+  data-locale="{{ localization.language.iso_code | default: request.locale.iso_code | default: 'en' }}"
+  data-currency="{{ cart.currency.iso_code | default: shop.currency }}"
+></div>
 {{ 'anka-widget.css' | asset_url | stylesheet_tag }}
 <script src="{{ 'anka-widget.js' | asset_url }}" defer></script>
 
@@ -9,7 +14,7 @@
   "settings": [
     {
       "type": "paragraph",
-      "content": "Renk, konum ve nudge metni Anka Loyalty admin panelinden yönetilir. Temayı kaydettikten sonra Online Store → Customize → App embeds bölümünden etkinleştirin."
+      "content": "Renk, konum, dil ve metinler Anka Loyalty admin → Görünüm bölümünden yönetilir."
     }
   ]
 }

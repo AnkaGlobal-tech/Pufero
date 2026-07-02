@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
-import { Form, useActionData, useLoaderData, useNavigation } from "@remix-run/react";
+import { Form, useActionData, useLoaderData } from "@remix-run/react";
 import {
   Page,
   Layout,
@@ -14,6 +14,7 @@ import {
   Box,
   Banner,
   Select,
+  Tabs,
 } from "@shopify/polaris";
 import { TitleBar, useAppBridge } from "@shopify/app-bridge-react";
 
@@ -24,18 +25,59 @@ import {
   updateWidgetSettings,
 } from "../lib/appearance.server";
 import type { WidgetSettings } from "../lib/widget-settings";
-import { formatNudgeText } from "../lib/widget-settings";
+import {
+  formatNudgeText,
+  LOCALE_COPY_FIELDS,
+  type WidgetPanelDirection,
+} from "../lib/widget-settings";
+import {
+  fetchShopLocales,
+  primaryLocale,
+  type ShopLocaleInfo,
+} from "../lib/shop-locales.server";
+import {
+  localeDisplayName,
+  normalizeLocaleCode,
+  resolveWidgetCopy,
+  type WidgetLocaleCopy,
+} from "../lib/widget-i18n";
+
+function mergedLocaleCopy(
+  settings: WidgetSettings,
+  locale: string,
+): WidgetLocaleCopy {
+  return resolveWidgetCopy(
+    settings.locales,
+    settings.default_locale,
+    locale,
+  ).copy;
+}
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
+  const { session, admin } = await authenticate.admin(request);
   const store = await getStoreByDomain(session.shop);
 
   if (!store) {
     return { missingStore: true as const };
   }
 
-  const settings = await getWidgetSettingsForStore(store.id);
-  return { missingStore: false as const, settings, shop: session.shop };
+  const [settings, shopLocales] = await Promise.all([
+    getWidgetSettingsForStore(store.id),
+    fetchShopLocales(admin),
+  ]);
+
+  const primary = primaryLocale(shopLocales);
+  const settingsWithDefault = {
+    ...settings,
+    default_locale: settings.default_locale || primary,
+  };
+
+  return {
+    missingStore: false as const,
+    settings: settingsWithDefault,
+    shopLocales,
+    primaryLocale: primary,
+  };
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
@@ -87,9 +129,10 @@ function ColorField(props: {
   );
 }
 
-function WidgetPreview({ settings }: { settings: WidgetSettings }) {
+function WidgetPreview({ settings, locale }: { settings: WidgetSettings; locale: string }) {
+  const copy = mergedLocaleCopy(settings, locale);
   const sampleBalance = 1250;
-  const nudge = formatNudgeText(settings.nudge_text, sampleBalance);
+  const nudge = formatNudgeText(copy.nudge_text, sampleBalance);
 
   return (
     <Box
@@ -101,14 +144,14 @@ function WidgetPreview({ settings }: { settings: WidgetSettings }) {
     >
       <BlockStack gap="300">
         <Text as="p" variant="bodySm" tone="subdued">
-          Önizleme (örnek bakiye: {sampleBalance} puan)
+          Önizleme — {localeDisplayName(locale)} ({locale})
         </Text>
         <div
           style={{
             position: "relative",
-            minHeight: 140,
+            minHeight: 160,
             borderRadius: 12,
-            background: "#f3f4f6",
+            background: "#eef0f3",
             overflow: "hidden",
           }}
         >
@@ -116,12 +159,12 @@ function WidgetPreview({ settings }: { settings: WidgetSettings }) {
             <div
               style={{
                 position: "absolute",
-                bottom: 72,
+                bottom: 76,
                 right: settings.position === "bottom-right" ? 16 : undefined,
                 left: settings.position === "bottom-left" ? 16 : undefined,
                 maxWidth: 200,
                 padding: "8px 12px",
-                borderRadius: 10,
+                borderRadius: 12,
                 background: settings.background_color,
                 color: settings.text_color,
                 fontSize: 12,
@@ -136,15 +179,15 @@ function WidgetPreview({ settings }: { settings: WidgetSettings }) {
               bottom: 16,
               right: settings.position === "bottom-right" ? 16 : undefined,
               left: settings.position === "bottom-left" ? 16 : undefined,
-              padding: "10px 16px",
+              padding: "10px 18px",
               borderRadius: 999,
               background: settings.primary_color,
               color: "#111",
               fontSize: 13,
-              fontWeight: 600,
+              fontWeight: 700,
             }}
           >
-            ★ {settings.launcher_label}
+            ★ {copy.launcher_label}
           </div>
         </div>
       </BlockStack>
@@ -152,18 +195,84 @@ function WidgetPreview({ settings }: { settings: WidgetSettings }) {
   );
 }
 
-function AppearanceForm({ settings }: { settings: WidgetSettings }) {
-  const [state, setState] = useState(settings);
+function LocaleFields(props: {
+  locale: string;
+  copy: WidgetLocaleCopy;
+  onChange: (key: keyof WidgetLocaleCopy, value: string) => void;
+}) {
+  return (
+    <BlockStack gap="300">
+      {LOCALE_COPY_FIELDS.map((field) => (
+        <TextField
+          key={field.key}
+          label={field.label}
+          name={`locale_${props.locale}_${field.key}`}
+          value={props.copy[field.key] ?? ""}
+          onChange={(v) => props.onChange(field.key, v)}
+          autoComplete="off"
+          multiline={field.multiline ? 3 : undefined}
+          helpText={field.help}
+        />
+      ))}
+    </BlockStack>
+  );
+}
+
+function AppearanceForm(props: {
+  settings: WidgetSettings;
+  shopLocales: ShopLocaleInfo[];
+  primaryLocale: string;
+}) {
+  const publishedCodes = props.shopLocales.map((l) =>
+    normalizeLocaleCode(l.locale),
+  );
+  const uniqueCodes = [...new Set(publishedCodes)];
+
+  const [state, setState] = useState(props.settings);
+  const [activeTab, setActiveTab] = useState(
+    normalizeLocaleCode(props.settings.default_locale || props.primaryLocale),
+  );
 
   useEffect(() => {
-    setState(settings);
-  }, [settings]);
+    setState(props.settings);
+  }, [props.settings]);
 
   const patch = (partial: Partial<WidgetSettings>) =>
     setState((prev) => ({ ...prev, ...partial }));
 
+  const patchLocale = (
+    locale: string,
+    key: keyof WidgetLocaleCopy,
+    value: string,
+  ) => {
+    setState((prev) => ({
+      ...prev,
+      locales: {
+        ...prev.locales,
+        [locale]: {
+          ...prev.locales[locale],
+          [key]: value,
+        },
+      },
+    }));
+  };
+
+  const tabs = uniqueCodes.map((code) => ({
+    id: code,
+    content: code,
+    accessibilityLabel: localeDisplayName(code),
+    panelID: `locale-${code}`,
+  }));
+
+  const activeCopy = mergedLocaleCopy(state, activeTab);
+
   return (
     <Form method="post">
+      <input
+        type="hidden"
+        name="locale_codes"
+        value={uniqueCodes.join(",")}
+      />
       <BlockStack gap="500">
         <Card>
           <BlockStack gap="400">
@@ -182,8 +291,8 @@ function AppearanceForm({ settings }: { settings: WidgetSettings }) {
             />
             <Banner tone="info">
               <p>
-                Temada etkinleştirmek için: <strong>Online Store → Customize →
-                App embeds → Anka Loyalty</strong>
+                Temada: <strong>Online Store → Customize → App embeds → Anka Loyalty</strong>.
+                Metinler mağaza diline göre otomatik seçilir; aşağıdan her dil için özelleştirebilirsiniz.
               </p>
             </Banner>
           </BlockStack>
@@ -192,8 +301,55 @@ function AppearanceForm({ settings }: { settings: WidgetSettings }) {
         <Card>
           <BlockStack gap="400">
             <Text as="h2" variant="headingMd">
-              Görünüm
+              Konum &amp; açılış yönü
             </Text>
+            <InlineStack gap="400" wrap>
+              <Box minWidth="200px">
+                <Select
+                  label="Launcher konumu"
+                  name="position"
+                  options={[
+                    { label: "Sağ alt", value: "bottom-right" },
+                    { label: "Sol alt", value: "bottom-left" },
+                  ]}
+                  value={state.position}
+                  onChange={(v) =>
+                    patch({ position: v as WidgetSettings["position"] })
+                  }
+                />
+              </Box>
+              <Box minWidth="200px">
+                <Select
+                  label="Panel açılış yönü"
+                  name="panel_direction"
+                  options={[
+                    { label: "Yukarı (butonun üstünde)", value: "up" },
+                    { label: "Sola doğru", value: "left" },
+                    { label: "Sağa doğru", value: "right" },
+                  ]}
+                  value={state.panel_direction}
+                  onChange={(v) =>
+                    patch({
+                      panel_direction: v as WidgetPanelDirection,
+                    })
+                  }
+                  helpText="Tıklanınca panel launcher'a göre bu yönde açılır"
+                />
+              </Box>
+              <Box minWidth="200px">
+                <Select
+                  label="Varsayılan dil"
+                  name="default_locale"
+                  options={uniqueCodes.map((code) => ({
+                    label: localeDisplayName(code),
+                    value: code,
+                  }))}
+                  value={state.default_locale}
+                  onChange={(v) => patch({ default_locale: v })}
+                  helpText="Mağaza dilinde metin yoksa bu dil kullanılır"
+                />
+              </Box>
+            </InlineStack>
             <InlineStack gap="400" wrap>
               <ColorField
                 label="Vurgu rengi"
@@ -214,35 +370,6 @@ function AppearanceForm({ settings }: { settings: WidgetSettings }) {
                 onChange={(v) => patch({ text_color: v })}
               />
             </InlineStack>
-            <Select
-              label="Konum"
-              name="position"
-              options={[
-                { label: "Sağ alt", value: "bottom-right" },
-                { label: "Sol alt", value: "bottom-left" },
-              ]}
-              value={state.position}
-              onChange={(v) =>
-                patch({ position: v as WidgetSettings["position"] })
-              }
-            />
-            <WidgetPreview settings={state} />
-          </BlockStack>
-        </Card>
-
-        <Card>
-          <BlockStack gap="400">
-            <Text as="h2" variant="headingMd">
-              Metinler
-            </Text>
-            <TextField
-              label="Launcher butonu metni"
-              name="launcher_label"
-              value={state.launcher_label}
-              onChange={(v) => patch({ launcher_label: v })}
-              autoComplete="off"
-              helpText="Sağ alttaki butonda görünen yazı"
-            />
             <Checkbox
               label="Nudge balonunu göster"
               checked={state.nudge_enabled}
@@ -253,29 +380,27 @@ function AppearanceForm({ settings }: { settings: WidgetSettings }) {
               name="nudge_enabled"
               value={state.nudge_enabled ? "on" : "off"}
             />
-            <TextField
-              label="Nudge balonu metni"
-              name="nudge_text"
-              value={state.nudge_text}
-              onChange={(v) => patch({ nudge_text: v })}
-              autoComplete="off"
-              helpText="{{balance}} yer tutucusu müşterinin puan bakiyesi ile değiştirilir"
-            />
-            <TextField
-              label="Misafir başlık (giriş yapmamış)"
-              name="guest_headline"
-              value={state.guest_headline}
-              onChange={(v) => patch({ guest_headline: v })}
-              autoComplete="off"
-            />
-            <TextField
-              label="Misafir açıklama"
-              name="guest_body"
-              value={state.guest_body}
-              onChange={(v) => patch({ guest_body: v })}
-              autoComplete="off"
-              multiline={3}
-              helpText="Giriş yapmamış ziyaretçilere gösterilir. {{points_per_dollar}} kullanılabilir."
+            <WidgetPreview settings={state} locale={activeTab} />
+          </BlockStack>
+        </Card>
+
+        <Card>
+          <BlockStack gap="400">
+            <Text as="h2" variant="headingMd">
+              Metinler (çoklu dil)
+            </Text>
+            <Text as="p" variant="bodySm" tone="subdued">
+              Shopify&apos;da yayınlanan diller:{" "}
+              {props.shopLocales.map((l) => l.name).join(", ")}. Boş bırakılan
+              alanlar için yerleşik çeviri kullanılır (EN/TR).
+            </Text>
+            {tabs.length > 1 ? (
+              <Tabs tabs={tabs} selected={activeTab} onSelect={setActiveTab} />
+            ) : null}
+            <LocaleFields
+              locale={activeTab}
+              copy={activeCopy}
+              onChange={(key, value) => patchLocale(activeTab, key, value)}
             />
             <InlineStack align="end">
               <Button submit variant="primary">
@@ -292,7 +417,6 @@ function AppearanceForm({ settings }: { settings: WidgetSettings }) {
 export default function AppearancePage() {
   const data = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
-  const navigation = useNavigation();
   const shopify = useAppBridge();
 
   useEffect(() => {
@@ -305,7 +429,9 @@ export default function AppearancePage() {
     return (
       <Page title="Görünüm">
         <TitleBar title="Görünüm" />
-        <Banner tone="warning">Mağaza kaydı bulunamadı. Uygulamayı yeniden yükleyin.</Banner>
+        <Banner tone="warning">
+          Mağaza kaydı bulunamadı. Uygulamayı yeniden yükleyin.
+        </Banner>
       </Page>
     );
   }
@@ -313,7 +439,7 @@ export default function AppearancePage() {
   return (
     <Page
       title="Görünüm"
-      subtitle="Storefront widget rengi, metinleri ve konumu"
+      subtitle="Widget konumu, açılış yönü, renkler ve dil bazlı metinler"
     >
       <TitleBar title="Görünüm" />
       <Layout>
@@ -322,7 +448,11 @@ export default function AppearancePage() {
             {actionData?.ok === false ? (
               <Banner tone="critical">{actionData.error}</Banner>
             ) : null}
-            <AppearanceForm settings={data.settings} />
+            <AppearanceForm
+              settings={data.settings}
+              shopLocales={data.shopLocales}
+              primaryLocale={data.primaryLocale}
+            />
           </BlockStack>
         </Layout.Section>
       </Layout>
