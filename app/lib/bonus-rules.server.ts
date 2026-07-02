@@ -143,7 +143,7 @@ export async function applyPurchaseBonuses(params: {
           source: "bulk_order_bonus",
           source_id: sourceId,
           shopify_order_id: params.shopifyOrderId ?? null,
-          description: `${params.descriptionPrefix} — bulk sipariş bonusu`,
+          description: `${params.descriptionPrefix} — bulk order bonus`,
           metadata: {
             ...params.metadata,
             bonus_rule: "bulk_order_bonus",
@@ -319,7 +319,7 @@ export async function applyAccountCreationBonus(params: {
     customerId: row.id,
     ruleType: "account_creation",
     sourceId: `customer-${row.shopifyCustomerId}-account_creation`,
-    description: "Hesap oluşturma bonusu",
+    description: "Account creation bonus",
   });
 }
 
@@ -444,7 +444,7 @@ export async function processBirthdayBonuses(storeId: string): Promise<number> {
       customerId: customer.id,
       ruleType: "birthday",
       sourceId: `customer-${customer.shopify_customer_id}-birthday-${year}`,
-      description: `${year} doğum günü bonusu`,
+      description: `${year} birthday bonus`,
       metadata: { birthday: customer.birthday, year },
     });
     awarded += points;

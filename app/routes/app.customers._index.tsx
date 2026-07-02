@@ -48,15 +48,15 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   return { customers: (data as CustomerRow[]) ?? [] };
 };
 
-const numberFormatter = new Intl.NumberFormat("tr-TR");
-const currencyFormatter = new Intl.NumberFormat("tr-TR", {
+const numberFormatter = new Intl.NumberFormat("en-US");
+const currencyFormatter = new Intl.NumberFormat("en-US", {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 });
 
 function customerName(c: CustomerRow): string {
   const name = [c.first_name, c.last_name].filter(Boolean).join(" ").trim();
-  return name || c.email || "İsimsiz müşteri";
+  return name || c.email || "Unnamed customer";
 }
 
 export default function CustomersIndex() {
@@ -65,16 +65,15 @@ export default function CustomersIndex() {
 
   if (customers.length === 0) {
     return (
-      <Page title="Müşteriler">
-        <TitleBar title="Müşteriler" />
+      <Page title="Customers">
+        <TitleBar title="Customers" />
         <Card>
           <EmptyState
-            heading="Henüz üye yok"
+            heading="No members yet"
             image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
           >
             <p>
-              İlk sipariş geldiğinde müşteriler otomatik olarak burada
-              listelenecek.
+              Customers will appear here automatically after their first order.
             </p>
           </EmptyState>
         </Card>
@@ -128,7 +127,7 @@ export default function CustomersIndex() {
       </IndexTable.Cell>
       <IndexTable.Cell>
         <Link to={`/app/customers/${c.id}`}>
-          <Button size="slim">Detay</Button>
+          <Button size="slim">Details</Button>
         </Link>
       </IndexTable.Cell>
     </IndexTable.Row>
@@ -136,22 +135,22 @@ export default function CustomersIndex() {
 
   return (
     <Page
-      title="Müşteriler"
-      subtitle={`${numberFormatter.format(customers.length)} üye`}
+      title="Customers"
+      subtitle={`${numberFormatter.format(customers.length)} members`}
     >
-      <TitleBar title="Müşteriler" />
+      <TitleBar title="Customers" />
       <Card padding="0">
         <IndexTable
           condensed={breakpoints.smDown}
           itemCount={customers.length}
           selectable={false}
           headings={[
-            { title: "Müşteri" },
-            { title: "E-posta" },
+            { title: "Customer" },
+            { title: "Email" },
             { title: "Tier" },
-            { title: "Puan Bakiyesi" },
-            { title: "Toplam Harcama" },
-            { title: "Sipariş" },
+            { title: "Points balance" },
+            { title: "Total spend" },
+            { title: "Orders" },
             { title: "" },
           ]}
         >

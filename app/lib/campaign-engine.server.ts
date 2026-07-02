@@ -243,7 +243,7 @@ export async function createCampaign(
     .filter((n) => Number.isFinite(n) && n > 0);
 
   if (!name || !startsAt || !endsAt) {
-    throw new Error("Kampanya adı ve tarih aralığı gerekli.");
+    throw new Error("Campaign name and date range are required.");
   }
 
   const { error } = await supabase.from("campaigns").insert({
@@ -324,11 +324,11 @@ export async function addExclusion(
   const resourceId = parseInt(String(form.get("exclusion_resource_id") ?? ""), 10);
 
   if (!Number.isFinite(resourceId) || resourceId <= 0) {
-    throw new Error("Geçerli bir Shopify kaynak ID girin.");
+    throw new Error("Enter a valid Shopify resource ID.");
   }
 
   if (resourceType !== "product" && resourceType !== "collection") {
-    throw new Error("Kaynak tipi product veya collection olmalı.");
+    throw new Error("Resource type must be product or collection.");
   }
 
   const { error } = await supabase.from("exclusions").insert({
@@ -339,7 +339,7 @@ export async function addExclusion(
 
   if (error) {
     if (error.code === "23505") {
-      throw new Error("Bu kaynak zaten hariç tutma listesinde.");
+      throw new Error("This resource is already on the exclusion list.");
     }
     throw new Error(`exclusion add failed: ${error.message}`);
   }

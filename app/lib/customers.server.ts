@@ -139,7 +139,7 @@ export async function addManualPoints(params: {
   actor: string;
 }): Promise<void> {
   if (!Number.isInteger(params.points) || params.points === 0) {
-    throw new Error("Puan sıfırdan farklı bir tam sayı olmalı.");
+    throw new Error("Points must be a non-zero whole number.");
   }
 
   const supabase = getSupabaseAdmin();
@@ -150,7 +150,7 @@ export async function addManualPoints(params: {
     movement_type: "manual" satisfies LedgerMovementType,
     points: params.points,
     source: "manual" satisfies LedgerSource,
-    description: params.reason || "Manuel puan düzeltmesi",
+    description: params.reason || "Manual points adjustment",
     metadata: {},
     created_by: params.actor,
   });

@@ -1,22 +1,22 @@
 import type { EarningRuleType, RedemptionRewardType } from "../types/loyalty";
 
 export const RULE_LABELS: Record<EarningRuleType, string> = {
-  points_per_dollar: "Harcama başına puan ($1 = X)",
-  first_order_bonus: "İlk sipariş bonusu",
-  second_order_bonus: "2. sipariş bonusu",
-  third_order_bonus: "3. sipariş bonusu",
-  bulk_order_bonus: "Bulk sipariş bonusu",
-  account_creation: "Hesap oluşturma",
-  birthday: "Doğum günü",
-  review_text: "Yazılı yorum",
-  review_photo: "Fotoğraflı yorum",
+  points_per_dollar: "Points per dollar spent ($1 = X)",
+  first_order_bonus: "First order bonus",
+  second_order_bonus: "2nd order bonus",
+  third_order_bonus: "3rd order bonus",
+  bulk_order_bonus: "Bulk order bonus",
+  account_creation: "Account creation",
+  birthday: "Birthday",
+  review_text: "Text review",
+  review_photo: "Photo review",
   ugc_video: "UGC video",
-  referral: "Referral (davet)",
+  referral: "Referral",
 };
 
 export const REWARD_TYPE_LABELS: Record<RedemptionRewardType, string> = {
-  fixed_amount: "Sabit tutar ($)",
-  percentage: "Yüzde (%)",
-  free_shipping: "Ücretsiz kargo",
-  free_product: "Ücretsiz ürün",
+  fixed_amount: "Fixed amount ($)",
+  percentage: "Percentage (%)",
+  free_shipping: "Free shipping",
+  free_product: "Free product",
 };

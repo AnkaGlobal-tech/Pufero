@@ -385,7 +385,7 @@ export async function setCustomerTierAssignment(params: {
     .single();
 
   if (customerError || !customer?.shopify_customer_id) {
-    throw new Error("Müşteri bulunamadı veya Shopify kaydı yok.");
+    throw new Error("Customer not found or missing Shopify record.");
   }
 
   const tiers = await loadStoreTiers(params.storeId);
@@ -421,7 +421,7 @@ export async function setCustomerTierAssignment(params: {
 
   const targetTier = tiers.find((t) => t.id === params.tierId);
   if (!targetTier) {
-    throw new Error("Geçersiz tier seçimi.");
+    throw new Error("Invalid tier selection.");
   }
 
   const { error: updateError } = await supabase

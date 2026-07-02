@@ -84,7 +84,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   const store = await getStoreByDomain(session.shop);
   if (!store) {
-    return { ok: false, error: "Mağaza bulunamadı" };
+    return { ok: false, error: "Store not found" };
   }
 
   const form = await request.formData();
@@ -93,7 +93,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   } catch (error) {
     return {
       ok: false,
-      error: error instanceof Error ? error.message : "Kayıt başarısız",
+      error: error instanceof Error ? error.message : "Save failed",
     };
   }
 
@@ -121,7 +121,7 @@ function ColorField(props: {
           type="color"
           value={props.value.startsWith("#") ? props.value : "#C9A84C"}
           onChange={(e) => props.onChange(e.target.value)}
-          aria-label={`${props.label} renk seçici`}
+          aria-label={`${props.label} color picker`}
           style={{ width: "100%", height: 36, border: "none", cursor: "pointer" }}
         />
       </BlockStack>
@@ -144,7 +144,7 @@ function WidgetPreview({ settings, locale }: { settings: WidgetSettings; locale:
     >
       <BlockStack gap="300">
         <Text as="p" variant="bodySm" tone="subdued">
-          Önizleme — {localeDisplayName(locale)} ({locale})
+          Preview — {localeDisplayName(locale)} ({locale})
         </Text>
         <div
           style={{
@@ -278,10 +278,10 @@ function AppearanceForm(props: {
         <Card>
           <BlockStack gap="400">
             <Text as="h2" variant="headingMd">
-              Widget durumu
+              Widget status
             </Text>
             <Checkbox
-              label="Storefront widget'ı göster"
+              label="Show storefront widget"
               checked={state.enabled}
               onChange={(v) => patch({ enabled: v })}
             />
@@ -292,8 +292,8 @@ function AppearanceForm(props: {
             />
             <Banner tone="info">
               <p>
-                Temada: <strong>Online Store → Customize → App embeds → Anka Loyalty</strong>.
-                Metinler mağaza diline göre otomatik seçilir; aşağıdan her dil için özelleştirebilirsiniz.
+                In theme: <strong>Online Store → Customize → App embeds → Anka Loyalty</strong>.
+                Copy is chosen by store language; customize each locale below.
               </p>
             </Banner>
           </BlockStack>
@@ -302,16 +302,16 @@ function AppearanceForm(props: {
         <Card>
           <BlockStack gap="400">
             <Text as="h2" variant="headingMd">
-              Konum &amp; açılış yönü
+              Position &amp; panel direction
             </Text>
             <InlineStack gap="400" wrap>
               <Box minWidth="200px">
                 <Select
-                  label="Launcher konumu"
+                  label="Launcher position"
                   name="position"
                   options={[
-                    { label: "Sağ alt", value: "bottom-right" },
-                    { label: "Sol alt", value: "bottom-left" },
+                    { label: "Bottom right", value: "bottom-right" },
+                    { label: "Bottom left", value: "bottom-left" },
                   ]}
                   value={state.position}
                   onChange={(v) =>
@@ -321,12 +321,12 @@ function AppearanceForm(props: {
               </Box>
               <Box minWidth="200px">
                 <Select
-                  label="Panel açılış yönü"
+                  label="Panel open direction"
                   name="panel_direction"
                   options={[
-                    { label: "Yukarı (butonun üstünde)", value: "up" },
-                    { label: "Sola doğru", value: "left" },
-                    { label: "Sağa doğru", value: "right" },
+                    { label: "Up (above button)", value: "up" },
+                    { label: "Left", value: "left" },
+                    { label: "Right", value: "right" },
                   ]}
                   value={state.panel_direction}
                   onChange={(v) =>
@@ -334,12 +334,12 @@ function AppearanceForm(props: {
                       panel_direction: v as WidgetPanelDirection,
                     })
                   }
-                  helpText="Tıklanınca panel launcher'a göre bu yönde açılır"
+                  helpText="Panel opens in this direction relative to the launcher"
                 />
               </Box>
               <Box minWidth="200px">
                 <Select
-                  label="Varsayılan dil"
+                  label="Default locale"
                   name="default_locale"
                   options={uniqueCodes.map((code) => ({
                     label: localeDisplayName(code),
@@ -347,32 +347,32 @@ function AppearanceForm(props: {
                   }))}
                   value={state.default_locale}
                   onChange={(v) => patch({ default_locale: v })}
-                  helpText="Mağaza dilinde metin yoksa bu dil kullanılır"
+                  helpText="Fallback when store locale has no custom copy"
                 />
               </Box>
             </InlineStack>
             <InlineStack gap="400" wrap>
               <ColorField
-                label="Vurgu rengi"
+                label="Accent color"
                 name="primary_color"
                 value={state.primary_color}
                 onChange={(v) => patch({ primary_color: v })}
               />
               <ColorField
-                label="Panel arka plan"
+                label="Panel background"
                 name="background_color"
                 value={state.background_color}
                 onChange={(v) => patch({ background_color: v })}
               />
               <ColorField
-                label="Metin rengi"
+                label="Text color"
                 name="text_color"
                 value={state.text_color}
                 onChange={(v) => patch({ text_color: v })}
               />
             </InlineStack>
             <Checkbox
-              label="Nudge balonunu göster"
+              label="Show nudge bubble"
               checked={state.nudge_enabled}
               onChange={(v) => patch({ nudge_enabled: v })}
             />
@@ -388,12 +388,12 @@ function AppearanceForm(props: {
         <Card>
           <BlockStack gap="400">
             <Text as="h2" variant="headingMd">
-              Metinler (çoklu dil)
+              Copy (multi-language)
             </Text>
             <Text as="p" variant="bodySm" tone="subdued">
-              Shopify&apos;da yayınlanan diller:{" "}
-              {props.shopLocales.map((l) => l.name).join(", ")}. Boş bırakılan
-              alanlar için yerleşik çeviri kullanılır (EN/TR).
+              Published Shopify locales:{" "}
+              {props.shopLocales.map((l) => l.name).join(", ")}. Empty fields
+              use built-in translations (EN/TR).
             </Text>
             {tabs.length > 1 ? (
               <Tabs
@@ -411,7 +411,7 @@ function AppearanceForm(props: {
             />
             <InlineStack align="end">
               <Button submit variant="primary">
-                Kaydet
+                Save
               </Button>
             </InlineStack>
           </BlockStack>
@@ -428,16 +428,16 @@ export default function AppearancePage() {
 
   useEffect(() => {
     if (actionData?.ok) {
-      shopify.toast.show("Görünüm ayarları kaydedildi");
+      shopify.toast.show("Appearance settings saved");
     }
   }, [actionData, shopify]);
 
   if (data.missingStore) {
     return (
-      <Page title="Görünüm">
-        <TitleBar title="Görünüm" />
+      <Page title="Appearance">
+        <TitleBar title="Appearance" />
         <Banner tone="warning">
-          Mağaza kaydı bulunamadı. Uygulamayı yeniden yükleyin.
+          Store record not found. Reload the app.
         </Banner>
       </Page>
     );
@@ -445,10 +445,10 @@ export default function AppearancePage() {
 
   return (
     <Page
-      title="Görünüm"
-      subtitle="Widget konumu, açılış yönü, renkler ve dil bazlı metinler"
+      title="Appearance"
+      subtitle="Widget position, panel direction, colors, and locale copy"
     >
-      <TitleBar title="Görünüm" />
+      <TitleBar title="Appearance" />
       <Layout>
         <Layout.Section>
           <BlockStack gap="400">

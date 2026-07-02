@@ -59,7 +59,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   const store = await getStoreByDomain(session.shop);
   if (!store) {
-    return { ok: false, error: "Mağaza bulunamadı" };
+    return { ok: false, error: "Store not found" };
   }
 
   const form = await request.formData();
@@ -98,12 +98,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       await deleteExclusion(store.id, String(form.get("exclusion_id")));
       break;
     default:
-      return { ok: false, error: "Bilinmeyen işlem" };
+      return { ok: false, error: "Unknown action" };
   }
   } catch (error) {
     return {
       ok: false,
-      error: error instanceof Error ? error.message : "Kayıt başarısız",
+      error: error instanceof Error ? error.message : "Save failed",
     };
   }
 
@@ -126,49 +126,49 @@ function PointsRateSection({ store }: { store: StorePointsSettings }) {
         <BlockStack gap="400">
           <BlockStack gap="100">
             <Text as="h2" variant="headingMd">
-              Puan Oranı & Expiry
+              Points Rate & Expiry
             </Text>
             <Text as="p" variant="bodySm" tone="subdued">
-              Satın almada kazanılan ve harcamada kullanılan puan oranları.
-              Expiry: son aktiviteden sonra puan yanması (Dashboard cron).
+              Points earned on purchase and spent at checkout.
+              Expiry: points expire after last activity (Dashboard cron).
             </Text>
           </BlockStack>
           <InlineStack gap="400" wrap>
             <Box minWidth="220px">
               <TextField
-                label="Kazanım: $1 = kaç puan"
+                label="Earn: $1 = how many points"
                 type="number"
                 name="points_per_dollar"
                 value={perDollar}
                 onChange={setPerDollar}
                 autoComplete="off"
-                suffix="puan / $"
+                suffix="pts / $"
                 min={0}
                 step={0.1}
               />
             </Box>
             <Box minWidth="220px">
               <TextField
-                label="Harcama: kaç puan = $1"
+                label="Redeem: how many points = $1"
                 type="number"
                 name="points_to_dollar_ratio"
                 value={ratio}
                 onChange={setRatio}
                 autoComplete="off"
-                suffix="puan / $"
+                suffix="pts / $"
                 min={1}
                 step={1}
               />
             </Box>
             <Box minWidth="220px">
               <Select
-                label="Puan expiry"
+                label="Points expiry"
                 name="points_expiry_months"
                 options={[
-                  { label: "Kapalı", value: "off" },
-                  { label: "6 ay", value: "6" },
-                  { label: "12 ay", value: "12" },
-                  { label: "24 ay", value: "24" },
+                  { label: "Off", value: "off" },
+                  { label: "6 months", value: "6" },
+                  { label: "12 months", value: "12" },
+                  { label: "24 months", value: "24" },
                 ]}
                 value={expiry}
                 onChange={setExpiry}
@@ -177,7 +177,7 @@ function PointsRateSection({ store }: { store: StorePointsSettings }) {
           </InlineStack>
           <InlineStack align="end">
             <Button submit variant="primary">
-              Kaydet
+              Save
             </Button>
           </InlineStack>
         </BlockStack>
@@ -206,10 +206,10 @@ function RulesSection({ rules }: { rules: RuleRow[] }) {
         <BlockStack gap="400">
           <BlockStack gap="100">
             <Text as="h2" variant="headingMd">
-              Kazanım Kuralları
+              Earning Rules
             </Text>
             <Text as="p" variant="bodySm" tone="subdued">
-              Bonus puan kuralları.
+              Bonus point rules.
             </Text>
           </BlockStack>
           <BlockStack gap="300">
@@ -238,7 +238,7 @@ function RulesSection({ rules }: { rules: RuleRow[] }) {
                   />
                   <Box minWidth="130px">
                     <TextField
-                      label="Puan"
+                      label="Points"
                       labelHidden
                       type="number"
                       name={`rule_points_${r.id}`}
@@ -247,7 +247,7 @@ function RulesSection({ rules }: { rules: RuleRow[] }) {
                         setState((p) => ({ ...p, [r.id]: { ...p[r.id], points: v } }))
                       }
                       autoComplete="off"
-                      suffix="puan"
+                      suffix="pts"
                       min={0}
                       disabled={!s.enabled}
                     />
@@ -258,7 +258,7 @@ function RulesSection({ rules }: { rules: RuleRow[] }) {
           </BlockStack>
           <InlineStack align="end">
             <Button submit variant="primary">
-              Kuralları Kaydet
+              Save Rules
             </Button>
           </InlineStack>
         </BlockStack>
@@ -292,11 +292,11 @@ function TiersSection({ tiers }: { tiers: TierRow[] }) {
       <Card>
         <BlockStack gap="400">
           <Text as="h2" variant="headingMd">
-            VIP Tier'lar
+            VIP Tiers
           </Text>
           <Text as="p" variant="bodySm" tone="subdued">
-            Shopify&apos;da müşteri tag&apos;i otomatik atanır (ör. anka-tier-gold). İndirim
-            için Discounts → otomatik indirim → müşteri tag koşulu kullanın.
+            Customer tags are assigned automatically in Shopify (e.g. anka-tier-gold). For
+            discounts, use Discounts → automatic discount → customer tag condition.
           </Text>
           <BlockStack gap="400">
             {tiers.map((t) => {
@@ -315,7 +315,7 @@ function TiersSection({ tiers }: { tiers: TierRow[] }) {
                     <InlineStack gap="300" wrap>
                       <Box minWidth="150px">
                         <TextField
-                          label="Eşik harcama ($)"
+                          label="Threshold spend ($)"
                           type="number"
                           name={`tier_threshold_${t.id}`}
                           value={s.threshold}
@@ -332,7 +332,7 @@ function TiersSection({ tiers }: { tiers: TierRow[] }) {
                       </Box>
                       <Box minWidth="140px">
                         <TextField
-                          label="İndirim (%)"
+                          label="Discount (%)"
                           type="number"
                           name={`tier_discount_${t.id}`}
                           value={s.discount}
@@ -348,7 +348,7 @@ function TiersSection({ tiers }: { tiers: TierRow[] }) {
                       </Box>
                       <Box minWidth="150px">
                         <TextField
-                          label="Puan çarpanı"
+                          label="Points multiplier"
                           type="number"
                           name={`tier_multiplier_${t.id}`}
                           value={s.multiplier}
@@ -371,7 +371,7 @@ function TiersSection({ tiers }: { tiers: TierRow[] }) {
           </BlockStack>
           <InlineStack align="end">
             <Button submit variant="primary">
-              Tier'ları Kaydet
+              Save Tiers
             </Button>
           </InlineStack>
         </BlockStack>
@@ -406,10 +406,10 @@ function RedemptionsSection({ redemptions }: { redemptions: RedemptionRow[] }) {
         <BlockStack gap="400">
           <BlockStack gap="100">
             <Text as="h2" variant="headingMd">
-              Ödüller (Kupon Kademeleri)
+              Rewards (Coupon Tiers)
             </Text>
             <Text as="p" variant="bodySm" tone="subdued">
-              Müşterinin puanını çevirebileceği kupon kademeleri.
+              Coupon tiers customers can redeem points for.
             </Text>
           </BlockStack>
           <BlockStack gap="300">
@@ -439,7 +439,7 @@ function RedemptionsSection({ redemptions }: { redemptions: RedemptionRow[] }) {
                     <InlineStack gap="300" blockAlign="center" wrap>
                       <Box minWidth="150px">
                         <TextField
-                          label="Puan maliyeti"
+                          label="Points cost"
                           type="number"
                           name={`redemption_cost_${r.id}`}
                           value={s.cost}
@@ -451,12 +451,12 @@ function RedemptionsSection({ redemptions }: { redemptions: RedemptionRow[] }) {
                           }
                           autoComplete="off"
                           min={1}
-                          suffix="puan"
+                          suffix="pts"
                         />
                       </Box>
                       <Box minWidth="150px">
                         <TextField
-                          label="Ödül değeri"
+                          label="Reward value"
                           type="number"
                           name={`redemption_value_${r.id}`}
                           value={s.value}
@@ -472,7 +472,7 @@ function RedemptionsSection({ redemptions }: { redemptions: RedemptionRow[] }) {
                       </Box>
                       <Box paddingBlockStart="500">
                         <Checkbox
-                          label="Aktif"
+                          label="Active"
                           checked={s.enabled}
                           onChange={(v) =>
                             setState((p) => ({
@@ -490,7 +490,7 @@ function RedemptionsSection({ redemptions }: { redemptions: RedemptionRow[] }) {
           </BlockStack>
           <InlineStack align="end">
             <Button submit variant="primary">
-              Ödülleri Kaydet
+              Save Rewards
             </Button>
           </InlineStack>
         </BlockStack>
@@ -507,7 +507,7 @@ function CampaignAnnouncementCopy({ campaign }: { campaign: CampaignRow }) {
     <Box paddingBlockStart="200">
       <BlockStack gap="200">
         <Text as="p" variant="bodySm" fontWeight="semibold">
-          Duyuru metni (kopyala)
+          Announcement text (copy)
         </Text>
         <Box
           padding="300"
@@ -523,10 +523,10 @@ function CampaignAnnouncementCopy({ campaign }: { campaign: CampaignRow }) {
             size="slim"
             onClick={() => {
               void navigator.clipboard.writeText(text);
-              shopify.toast.show("Duyuru metni kopyalandı");
+              shopify.toast.show("Announcement text copied");
             }}
           >
-            Metni kopyala
+            Copy text
           </Button>
         </InlineStack>
       </BlockStack>
@@ -544,7 +544,7 @@ function CampaignsSection({ campaigns }: { campaigns: CampaignRow[] }) {
 
   const fmtDate = (iso: string) => {
     try {
-      return new Date(iso).toLocaleDateString("tr-TR");
+      return new Date(iso).toLocaleDateString("en-US");
     } catch {
       return iso;
     }
@@ -555,11 +555,11 @@ function CampaignsSection({ campaigns }: { campaigns: CampaignRow[] }) {
       <Card>
         <BlockStack gap="400">
           <Text as="h2" variant="headingMd">
-            Bonus Kampanyalar
+            Bonus Campaigns
           </Text>
           <Text as="p" variant="bodySm" tone="subdued">
-            Tarih aralığında ek puan çarpanı. Koleksiyon ID boş = tüm sipariş.
-            Çarpan tier çarpanı ile çarpılır.
+            Extra points multiplier within a date range. Empty collection ID = entire order.
+            Multiplier stacks with tier multiplier.
           </Text>
           {campaigns.map((c) => (
             <Box
@@ -575,14 +575,14 @@ function CampaignsSection({ campaigns }: { campaigns: CampaignRow[] }) {
                     {c.name}
                   </Text>
                   <Badge tone={c.is_active ? "success" : undefined}>
-                    {c.is_active ? "Aktif" : "Pasif"} · {c.multiplier}x
+                    {`${c.is_active ? "Active" : "Inactive"} · ${c.multiplier}x`}
                   </Badge>
                 </InlineStack>
                 <Text as="p" variant="bodySm" tone="subdued">
                   {fmtDate(c.starts_at)} — {fmtDate(c.ends_at)}
                   {c.collection_ids.length > 0
-                    ? ` · Koleksiyon: ${c.collection_ids.join(", ")}`
-                    : " · Tüm ürünler"}
+                    ? ` · Collection: ${c.collection_ids.join(", ")}`
+                    : " · All products"}
                 </Text>
                 <InlineStack gap="200">
                   <Form method="post">
@@ -594,14 +594,14 @@ function CampaignsSection({ campaigns }: { campaigns: CampaignRow[] }) {
                       value={c.is_active ? "off" : "on"}
                     />
                     <Button submit size="slim">
-                      {c.is_active ? "Durdur" : "Aktive et"}
+                      {c.is_active ? "Pause" : "Activate"}
                     </Button>
                   </Form>
                   <Form method="post">
                     <input type="hidden" name="intent" value="delete_campaign" />
                     <input type="hidden" name="campaign_id" value={c.id} />
                     <Button submit size="slim" tone="critical">
-                      Sil
+                      Delete
                     </Button>
                   </Form>
                 </InlineStack>
@@ -619,13 +619,13 @@ function CampaignsSection({ campaigns }: { campaigns: CampaignRow[] }) {
           <input type="hidden" name="intent" value="create_campaign" />
           <BlockStack gap="300">
             <Text as="h3" variant="headingSm">
-              Yeni kampanya
+              New campaign
             </Text>
-            <TextField label="Ad" name="campaign_name" value={name} onChange={setName} autoComplete="off" />
+            <TextField label="Name" name="campaign_name" value={name} onChange={setName} autoComplete="off" />
             <InlineStack gap="300" wrap>
               <Box minWidth="120px">
                 <TextField
-                  label="Çarpan"
+                  label="Multiplier"
                   name="campaign_multiplier"
                   type="number"
                   value={multiplier}
@@ -637,7 +637,7 @@ function CampaignsSection({ campaigns }: { campaigns: CampaignRow[] }) {
               </Box>
               <Box minWidth="180px">
                 <TextField
-                  label="Başlangıç"
+                  label="Start"
                   name="campaign_starts_at"
                   type="datetime-local"
                   value={startsAt}
@@ -647,7 +647,7 @@ function CampaignsSection({ campaigns }: { campaigns: CampaignRow[] }) {
               </Box>
               <Box minWidth="180px">
                 <TextField
-                  label="Bitiş"
+                  label="End"
                   name="campaign_ends_at"
                   type="datetime-local"
                   value={endsAt}
@@ -657,7 +657,7 @@ function CampaignsSection({ campaigns }: { campaigns: CampaignRow[] }) {
               </Box>
             </InlineStack>
             <TextField
-              label="Koleksiyon ID'leri (virgülle, opsiyonel)"
+              label="Collection IDs (comma-separated, optional)"
               name="campaign_collection_ids"
               value={collections}
               onChange={setCollections}
@@ -665,10 +665,10 @@ function CampaignsSection({ campaigns }: { campaigns: CampaignRow[] }) {
               placeholder="123456789, 987654321"
             />
             <input type="hidden" name="campaign_is_active" value={active ? "on" : "off"} />
-            <Checkbox label="Oluşturur oluşturmaz aktif" checked={active} onChange={setActive} />
+            <Checkbox label="Active immediately on create" checked={active} onChange={setActive} />
             <InlineStack align="end">
               <Button submit variant="primary">
-                Kampanya oluştur
+                Create campaign
               </Button>
             </InlineStack>
           </BlockStack>
@@ -687,26 +687,26 @@ function ExclusionsSection({ exclusions }: { exclusions: ExclusionRow[] }) {
       <Card>
         <BlockStack gap="400">
           <Text as="h2" variant="headingMd">
-            Puan Hariç Tutma
+            Point Exclusions
           </Text>
           <Text as="p" variant="bodySm" tone="subdued">
-            Shopify ürün veya koleksiyon ID — bu kaynaklardan puan kazanılmaz.
+            Shopify product or collection ID — no points earned from these resources.
           </Text>
           {exclusions.length === 0 ? (
             <Text as="p" tone="subdued">
-              Henüz hariç tutma yok.
+              No exclusions yet.
             </Text>
           ) : (
             exclusions.map((e) => (
               <InlineStack key={e.id} align="space-between" blockAlign="center">
                 <Text as="span">
-                  {e.resource_type === "product" ? "Ürün" : "Koleksiyon"} #{e.shopify_resource_id}
+                  {e.resource_type === "product" ? "Product" : "Collection"} #{e.shopify_resource_id}
                 </Text>
                 <Form method="post">
                   <input type="hidden" name="intent" value="delete_exclusion" />
                   <input type="hidden" name="exclusion_id" value={e.id} />
                   <Button submit size="slim" tone="critical">
-                    Kaldır
+                    Remove
                   </Button>
                 </Form>
               </InlineStack>
@@ -719,17 +719,17 @@ function ExclusionsSection({ exclusions }: { exclusions: ExclusionRow[] }) {
           <input type="hidden" name="intent" value="add_exclusion" />
           <BlockStack gap="300">
             <Select
-              label="Tip"
+              label="Type"
               name="exclusion_type"
               options={[
-                { label: "Ürün", value: "product" },
-                { label: "Koleksiyon", value: "collection" },
+                { label: "Product", value: "product" },
+                { label: "Collection", value: "collection" },
               ]}
               value={type}
               onChange={setType}
             />
             <TextField
-              label="Shopify kaynak ID"
+              label="Shopify resource ID"
               name="exclusion_resource_id"
               value={resourceId}
               onChange={setResourceId}
@@ -737,7 +737,7 @@ function ExclusionsSection({ exclusions }: { exclusions: ExclusionRow[] }) {
             />
             <InlineStack align="end">
               <Button submit variant="primary">
-                Ekle
+                Add
               </Button>
             </InlineStack>
           </BlockStack>
@@ -755,9 +755,9 @@ export default function Program() {
 
   useEffect(() => {
     if (actionData?.ok && navigation.state === "idle") {
-      shopify.toast.show("Kaydedildi");
+      shopify.toast.show("Saved");
     }
-    if (actionData && !actionData.ok && navigation.state === "idle") {
+    if (actionData && !actionData.ok && "error" in actionData && navigation.state === "idle") {
       shopify.toast.show(actionData.error, { isError: true });
     }
   }, [actionData, navigation.state, shopify]);
@@ -766,8 +766,8 @@ export default function Program() {
     return (
       <Page title="Program">
         <TitleBar title="Program" />
-        <Banner tone="critical" title="Mağaza kaydı bulunamadı">
-          <p>Uygulamayı yeniden kurmayı deneyin.</p>
+        <Banner tone="critical" title="Store record not found">
+          <p>Try reinstalling the app.</p>
         </Banner>
       </Page>
     );

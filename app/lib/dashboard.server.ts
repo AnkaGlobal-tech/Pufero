@@ -60,9 +60,9 @@ interface LedgerJoinRow {
 }
 
 function formatCustomerName(c: LedgerJoinRow["customers"]): string {
-  if (!c) return "Bilinmeyen müşteri";
+  if (!c) return "Unknown customer";
   const name = [c.first_name, c.last_name].filter(Boolean).join(" ").trim();
-  return name || c.email || "İsimsiz müşteri";
+  return name || c.email || "Unnamed customer";
 }
 
 export async function getRecentActivity(

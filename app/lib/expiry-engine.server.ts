@@ -187,7 +187,7 @@ export async function processPointsExpiry(storeId: string): Promise<number> {
         points: -balance,
         source: "manual",
         source_id: sourceId,
-        description: `Puan süresi doldu (${months} ay hareketsizlik)`,
+        description: `Points expired (${months} months inactive)`,
         metadata: {
           expiry_date: expiryKey,
           expired_balance: balance,

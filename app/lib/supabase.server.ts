@@ -19,7 +19,7 @@ export function getSupabaseAdmin(): SupabaseClient {
 
   if (!env) {
     throw new Error(
-      "Supabase yapılandırılmamış. SUPABASE_URL ve SUPABASE_SERVICE_ROLE_KEY .env dosyasında olmalı.",
+      "Supabase is not configured. SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set in .env.",
     );
   }
 
@@ -59,11 +59,11 @@ export async function verifySupabaseConnection(): Promise<{
       return { ok: false, message: error.message };
     }
 
-    return { ok: true, message: "Supabase bağlantısı başarılı" };
+    return { ok: true, message: "Supabase connection successful" };
   } catch (error) {
     return {
       ok: false,
-      message: error instanceof Error ? error.message : "Bilinmeyen hata",
+      message: error instanceof Error ? error.message : "Unknown error",
     };
   }
 }

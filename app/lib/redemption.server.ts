@@ -114,19 +114,19 @@ async function createShopifyDiscount(params: {
     const errors = json.data?.discountCodeFreeShippingCreate?.userErrors ?? [];
     if (errors.length > 0 || json.errors) {
       throw new Error(
-        `Ücretsiz kargo kuponu oluşturulamadı: ${JSON.stringify(errors.length ? errors : json.errors)}`,
+        `Free shipping coupon could not be created: ${JSON.stringify(errors.length ? errors : json.errors)}`,
       );
     }
     return;
   }
 
   if (params.redemption.reward_type === "free_product") {
-    throw new Error("Ücretsiz ürün kuponu henüz desteklenmiyor.");
+    throw new Error("Free product coupons are not supported yet.");
   }
 
   const rewardValue = toNumber(params.redemption.reward_value);
   if (rewardValue <= 0) {
-    throw new Error("Kupon değeri geçersiz.");
+    throw new Error("Invalid coupon value.");
   }
 
   const customerGets =
@@ -158,7 +158,7 @@ async function createShopifyDiscount(params: {
   const errors = json.data?.discountCodeBasicCreate?.userErrors ?? [];
   if (errors.length > 0 || json.errors) {
     throw new Error(
-      `Kupon oluşturulamadı: ${JSON.stringify(errors.length ? errors : json.errors)}`,
+      `Coupon could not be created: ${JSON.stringify(errors.length ? errors : json.errors)}`,
     );
   }
 }
@@ -186,13 +186,13 @@ export async function redeemPointsForCustomer(params: {
     .single();
 
   if (redemptionError || !redemption?.enabled) {
-    throw new Error("Kupon kademesi bulunamadı veya kapalı.");
+    throw new Error("Redemption tier not found or inactive.");
   }
 
   const tier = redemption as RedemptionTier;
   const pointsCost = Math.floor(toNumber(tier.points_cost));
   if (pointsCost <= 0) {
-    throw new Error("Geçersiz puan maliyeti.");
+    throw new Error("Invalid points cost.");
   }
 
   const { data: customer, error: customerError } = await supabase
@@ -203,13 +203,13 @@ export async function redeemPointsForCustomer(params: {
     .single();
 
   if (customerError || !customer?.shopify_customer_id) {
-    throw new Error("Müşteri bulunamadı.");
+    throw new Error("Customer not found.");
   }
 
   const balance = await getCustomerBalance(params.storeId, params.customerId);
   if (balance < pointsCost) {
     throw new Error(
-      `Yetersiz bakiye (${balance} puan, gerekli ${pointsCost}).`,
+      `Insufficient balance (${balance} points, ${pointsCost} required).`,
     );
   }
 
@@ -223,7 +223,7 @@ export async function redeemPointsForCustomer(params: {
     points: -pointsCost,
     source: "manual",
     source_id: sourceId,
-    description: `${tier.name} — kupon: ${code}`,
+    description: `${tier.name} — coupon: ${code}`,
     metadata: {
       redemption_id: params.redemptionId,
       discount_code: code,
@@ -233,7 +233,7 @@ export async function redeemPointsForCustomer(params: {
   });
 
   if (ledgerError) {
-    throw new Error(`Puan düşme başarısız: ${ledgerError.message}`);
+    throw new Error(`Points deduction failed: ${ledgerError.message}`);
   }
 
   try {
@@ -251,7 +251,7 @@ export async function redeemPointsForCustomer(params: {
       points: pointsCost,
       source: "manual",
       source_id: `${sourceId}-rollback`,
-      description: `Kupon hatası — ${pointsCost} puan iade`,
+      description: `Coupon error — ${pointsCost} points refunded`,
       metadata: { rollback_for: sourceId },
       created_by: "redemption-engine",
     });

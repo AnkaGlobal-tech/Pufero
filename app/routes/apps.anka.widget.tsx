@@ -8,6 +8,10 @@ import { getWidgetPayload } from "../lib/widget.server";
 /** App Proxy: GET /apps/anka/widget */
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.public.appProxy(request);
+  if (!session) {
+    return json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const store = await getStoreByDomain(session.shop);
 
   if (!store?.is_active) {

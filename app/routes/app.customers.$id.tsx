@@ -71,7 +71,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
   const customerId = params.id;
 
   if (!store || !customerId) {
-    return { ok: false as const, error: "Mağaza veya müşteri bulunamadı." };
+    return { ok: false as const, error: "Store or customer not found." };
   }
 
   const form = await request.formData();
@@ -82,7 +82,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
     const tierId = tierIdRaw === "auto" ? null : tierIdRaw;
 
     if (tierId !== null && !tierId) {
-      return { ok: false as const, error: "Tier seçin." };
+      return { ok: false as const, error: "Select a tier." };
     }
 
     try {
@@ -100,7 +100,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
     } catch (error) {
       return {
         ok: false as const,
-        error: error instanceof Error ? error.message : "Bilinmeyen hata",
+        error: error instanceof Error ? error.message : "Unknown error",
       };
     }
   }
@@ -108,7 +108,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
   if (intent === "redeem") {
     const redemptionId = String(form.get("redemption_id") ?? "");
     if (!redemptionId) {
-      return { ok: false as const, error: "Kupon kademesi seçin." };
+      return { ok: false as const, error: "Select a redemption tier." };
     }
 
     try {
@@ -126,13 +126,13 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
     } catch (error) {
       return {
         ok: false as const,
-        error: error instanceof Error ? error.message : "Bilinmeyen hata",
+        error: error instanceof Error ? error.message : "Unknown error",
       };
     }
   }
 
   if (intent !== "manual_points") {
-    return { ok: false as const, error: "Bilinmeyen işlem." };
+    return { ok: false as const, error: "Unknown action." };
   }
 
   const direction = String(form.get("direction"));
@@ -140,7 +140,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
   const reason = String(form.get("reason") ?? "").trim();
 
   if (!Number.isFinite(amountRaw) || amountRaw <= 0) {
-    return { ok: false as const, error: "Geçerli bir puan miktarı girin." };
+    return { ok: false as const, error: "Enter a valid points amount." };
   }
 
   const amount = Math.floor(amountRaw);
@@ -157,19 +157,19 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
   } catch (error) {
     return {
       ok: false as const,
-      error: error instanceof Error ? error.message : "Bilinmeyen hata",
+      error: error instanceof Error ? error.message : "Unknown error",
     };
   }
 
   return { ok: true as const, intent: "manual_points" as const, points: signed };
 };
 
-const numberFormatter = new Intl.NumberFormat("tr-TR");
-const currencyFormatter = new Intl.NumberFormat("tr-TR", {
+const numberFormatter = new Intl.NumberFormat("en-US");
+const currencyFormatter = new Intl.NumberFormat("en-US", {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 });
-const dateFormatter = new Intl.DateTimeFormat("tr-TR", {
+const dateFormatter = new Intl.DateTimeFormat("en-US", {
   dateStyle: "medium",
   timeStyle: "short",
 });
@@ -178,33 +178,33 @@ const MOVEMENT_LABELS: Record<
   LedgerMovementType,
   { label: string; tone: "success" | "info" | "warning" | "critical" | "attention" }
 > = {
-  earn: { label: "Kazanım", tone: "success" },
-  redeem: { label: "Harcama", tone: "info" },
-  refund_reversal: { label: "İade geri alımı", tone: "warning" },
-  cancel_reversal: { label: "İptal geri alımı", tone: "warning" },
-  expired: { label: "Süresi doldu", tone: "critical" },
-  manual: { label: "Manuel", tone: "attention" },
+  earn: { label: "Earned", tone: "success" },
+  redeem: { label: "Redeemed", tone: "info" },
+  refund_reversal: { label: "Refund reversal", tone: "warning" },
+  cancel_reversal: { label: "Cancel reversal", tone: "warning" },
+  expired: { label: "Expired", tone: "critical" },
+  manual: { label: "Manual", tone: "attention" },
 };
 
 const SOURCE_LABELS: Record<LedgerSource, string> = {
-  purchase: "Satın alma",
-  review_text: "Yazılı yorum",
-  review_photo: "Fotoğraflı yorum",
+  purchase: "Purchase",
+  review_text: "Text review",
+  review_photo: "Photo review",
   ugc_video: "UGC video",
   referral: "Referral",
-  manual: "Manuel",
-  campaign: "Kampanya",
-  birthday: "Doğum günü",
-  account_creation: "Hesap oluşturma",
-  first_order_bonus: "İlk sipariş bonusu",
-  second_order_bonus: "2. sipariş bonusu",
-  third_order_bonus: "3. sipariş bonusu",
-  bulk_order_bonus: "Bulk sipariş bonusu",
+  manual: "Manual",
+  campaign: "Campaign",
+  birthday: "Birthday",
+  account_creation: "Account creation",
+  first_order_bonus: "First order bonus",
+  second_order_bonus: "Second order bonus",
+  third_order_bonus: "Third order bonus",
+  bulk_order_bonus: "Bulk order bonus",
 };
 
 function customerName(c: CustomerDetail): string {
   const name = [c.first_name, c.last_name].filter(Boolean).join(" ").trim();
-  return name || c.email || "İsimsiz müşteri";
+  return name || c.email || "Unnamed customer";
 }
 
 function formatDate(value: string | null): string {
@@ -219,14 +219,14 @@ function SummaryCard({ customer }: { customer: CustomerDetail }) {
       <BlockStack gap="400">
         <BlockStack gap="100">
           <Text as="h2" variant="headingMd">
-            Özet
+            Summary
           </Text>
           <InlineStack gap="200">
             {customer.tier_name ? (
               <Badge tone="info">{customer.tier_name}</Badge>
             ) : null}
             {customer.tier_manual_override ? (
-              <Badge tone="attention">Manuel tier</Badge>
+              <Badge tone="attention">Manual tier</Badge>
             ) : null}
           </InlineStack>
         </BlockStack>
@@ -238,7 +238,7 @@ function SummaryCard({ customer }: { customer: CustomerDetail }) {
         >
           <BlockStack gap="100" inlineAlign="center">
             <Text as="span" variant="bodySm" tone="subdued">
-              Puan Bakiyesi
+              Points balance
             </Text>
             <Text
               as="span"
@@ -254,7 +254,7 @@ function SummaryCard({ customer }: { customer: CustomerDetail }) {
         <InlineGrid columns="2" gap="300">
           <BlockStack gap="050">
             <Text as="span" variant="bodySm" tone="subdued">
-              Toplam Harcama
+              Total spend
             </Text>
             <Text as="span" variant="bodyMd" fontWeight="medium" numeric>
               ${currencyFormatter.format(customer.total_spend)}
@@ -262,7 +262,7 @@ function SummaryCard({ customer }: { customer: CustomerDetail }) {
           </BlockStack>
           <BlockStack gap="050">
             <Text as="span" variant="bodySm" tone="subdued">
-              Sipariş Sayısı
+              Order count
             </Text>
             <Text as="span" variant="bodyMd" fontWeight="medium" numeric>
               {numberFormatter.format(customer.order_count)}
@@ -270,7 +270,7 @@ function SummaryCard({ customer }: { customer: CustomerDetail }) {
           </BlockStack>
           <BlockStack gap="050">
             <Text as="span" variant="bodySm" tone="subdued">
-              Üyelik
+              Member since
             </Text>
             <Text as="span" variant="bodyMd">
               {formatDate(customer.created_at)}
@@ -278,7 +278,7 @@ function SummaryCard({ customer }: { customer: CustomerDetail }) {
           </BlockStack>
           <BlockStack gap="050">
             <Text as="span" variant="bodySm" tone="subdued">
-              Son Aktivite
+              Last activity
             </Text>
             <Text as="span" variant="bodyMd">
               {formatDate(customer.last_activity_at)}
@@ -321,7 +321,7 @@ function TierCard({
     tiers.find((t) => t.slug === customer.tier_slug)?.shopify_customer_tag;
 
   const options = [
-    { label: "Otomatik (harcamaya göre)", value: "auto" },
+    { label: "Automatic (based on spend)", value: "auto" },
     ...tiers.map((t) => ({
       label: `${t.name} → ${t.shopify_customer_tag}`,
       value: t.id,
@@ -338,7 +338,7 @@ function TierCard({
               VIP Tier
             </Text>
             <Text as="p" variant="bodySm" tone="subdued">
-              Tier seçimi Shopify müşteri tag&apos;ini günceller. Mevcut tag:{" "}
+              Tier selection updates the Shopify customer tag. Current tag:{" "}
               <Text as="span" fontWeight="semibold">
                 {currentTag ?? "—"}
               </Text>
@@ -358,7 +358,7 @@ function TierCard({
           />
           <InlineStack align="end">
             <Button submit loading={submitting} disabled={disabled}>
-              Tier kaydet
+              Save tier
             </Button>
           </InlineStack>
         </BlockStack>
@@ -391,11 +391,10 @@ function RedeemCard({
       <Card>
         <BlockStack gap="200">
           <Text as="h2" variant="headingMd">
-            Puan Harcama
+            Redeem points
           </Text>
           <Text as="p" variant="bodySm" tone="subdued">
-            Aktif kupon kademesi yok. Program → Redemption bölümünden kademe
-            açın.
+            No active redemption tiers. Enable tiers under Program → Redemption.
           </Text>
         </BlockStack>
       </Card>
@@ -403,7 +402,7 @@ function RedeemCard({
   }
 
   const options = redemptions.map((r) => ({
-    label: `${r.name} (${numberFormatter.format(r.points_cost)} puan)`,
+    label: `${r.name} (${numberFormatter.format(r.points_cost)} points)`,
     value: r.id,
   }));
 
@@ -414,11 +413,11 @@ function RedeemCard({
         <BlockStack gap="400">
           <BlockStack gap="100">
             <Text as="h2" variant="headingMd">
-              Puan Harcama
+              Redeem points
             </Text>
             <Text as="p" variant="bodySm" tone="subdued">
-              Bakiye: {numberFormatter.format(customer.balance)} puan. Tek
-              kullanımlık müşteriye özel kupon üretilir.
+              Balance: {numberFormatter.format(customer.balance)} points. A
+              single-use customer-specific coupon will be generated.
             </Text>
           </BlockStack>
 
@@ -427,18 +426,18 @@ function RedeemCard({
           ) : null}
 
           {actionData?.ok && actionData.intent === "redeem" ? (
-            <Banner tone="success" title="Kupon oluşturuldu">
+            <Banner tone="success" title="Coupon created">
               <p>
                 <strong>{actionData.redeem.code}</strong> —{" "}
                 {actionData.redeem.redemptionName} (
-                {numberFormatter.format(actionData.redeem.pointsDeducted)} puan
-                düşüldü)
+                {numberFormatter.format(actionData.redeem.pointsDeducted)} points
+                deducted)
               </p>
             </Banner>
           ) : null}
 
           <Select
-            label="Kademe"
+            label="Tier"
             name="redemption_id"
             options={options}
             value={redemptionId}
@@ -451,7 +450,7 @@ function RedeemCard({
               loading={submitting}
               disabled={disabled || customer.balance <= 0}
             >
-              Kupon üret
+              Generate coupon
             </Button>
           </InlineStack>
         </BlockStack>
@@ -486,11 +485,11 @@ function ManualPointsCard({ disabled }: { disabled: boolean }) {
         <BlockStack gap="400">
           <BlockStack gap="100">
             <Text as="h2" variant="headingMd">
-              Manuel Puan
+              Manual points
             </Text>
             <Text as="p" variant="bodySm" tone="subdued">
-              Müşteriye elle puan ekleyin veya düşün. Hareket geçmişe
-              "Manuel" olarak işlenir.
+              Add or deduct points manually. The movement is recorded as
+              &quot;Manual&quot; in the ledger.
             </Text>
           </BlockStack>
 
@@ -499,16 +498,16 @@ function ManualPointsCard({ disabled }: { disabled: boolean }) {
           ) : null}
 
           <Select
-            label="İşlem"
+            label="Action"
             options={[
-              { label: "Puan ekle (+)", value: "add" },
-              { label: "Puan düş (−)", value: "subtract" },
+              { label: "Add points (+)", value: "add" },
+              { label: "Deduct points (−)", value: "subtract" },
             ]}
             value={direction}
             onChange={setDirection}
           />
           <TextField
-            label="Miktar"
+            label="Amount"
             type="number"
             name="amount"
             value={amount}
@@ -516,17 +515,17 @@ function ManualPointsCard({ disabled }: { disabled: boolean }) {
             autoComplete="off"
             min={1}
             step={1}
-            suffix="puan"
+            suffix="points"
             requiredIndicator
           />
           <TextField
-            label="Açıklama (opsiyonel)"
+            label="Description (optional)"
             name="reason"
             value={reason}
             onChange={setReason}
             autoComplete="off"
             multiline={2}
-            placeholder="Örn. müşteri hizmetleri telafisi"
+            placeholder="E.g. customer service compensation"
           />
           <InlineStack align="end">
             <Button
@@ -536,7 +535,7 @@ function ManualPointsCard({ disabled }: { disabled: boolean }) {
               loading={submitting}
               disabled={disabled || amount.trim() === ""}
             >
-              Uygula
+              Apply
             </Button>
           </InlineStack>
         </BlockStack>
@@ -550,10 +549,10 @@ function LedgerCard({ ledger }: { ledger: LedgerEntry[] }) {
     return (
       <Card>
         <EmptyState
-          heading="Henüz puan hareketi yok"
+          heading="No point activity yet"
           image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
         >
-          <p>Sipariş, manuel düzeltme veya bonuslar burada listelenecek.</p>
+          <p>Orders, manual adjustments, and bonuses will appear here.</p>
         </EmptyState>
       </Card>
     );
@@ -585,7 +584,7 @@ function LedgerCard({ ledger }: { ledger: LedgerEntry[] }) {
           <Text as="span" variant="bodySm">
             {entry.description ??
               (entry.shopify_order_id
-                ? `Sipariş #${entry.shopify_order_id}`
+                ? `Order #${entry.shopify_order_id}`
                 : "—")}
           </Text>
         </IndexTable.Cell>
@@ -611,11 +610,11 @@ function LedgerCard({ ledger }: { ledger: LedgerEntry[] }) {
         itemCount={ledger.length}
         selectable={false}
         headings={[
-          { title: "Tarih" },
-          { title: "Tür" },
-          { title: "Kaynak" },
-          { title: "Açıklama" },
-          { title: "Puan", alignment: "end" },
+          { title: "Date" },
+          { title: "Type" },
+          { title: "Source" },
+          { title: "Description" },
+          { title: "Points", alignment: "end" },
         ]}
       >
         {rows}
@@ -635,22 +634,22 @@ export default function CustomerDetailPage() {
       return;
     }
     if (actionData.intent === "manual_points") {
-      shopify.toast.show("Puan güncellendi");
+      shopify.toast.show("Points updated");
     }
     if (actionData.intent === "set_tier") {
       shopify.toast.show(`Tier: ${actionData.tierName}`);
     }
     if (actionData.intent === "redeem") {
-      shopify.toast.show(`Kupon: ${actionData.redeem.code}`);
+      shopify.toast.show(`Coupon: ${actionData.redeem.code}`);
     }
   }, [actionData, navigation.state, shopify]);
 
   if (!data.found) {
     return (
-      <Page title="Müşteri" backAction={{ content: "Müşteriler", url: "/app/customers" }}>
-        <TitleBar title="Müşteri" />
-        <Banner tone="critical" title="Müşteri bulunamadı">
-          <p>Bu müşteri kaydı mevcut değil veya bu mağazaya ait değil.</p>
+      <Page title="Customer" backAction={{ content: "Customers", url: "/app/customers" }}>
+        <TitleBar title="Customer" />
+        <Banner tone="critical" title="Customer not found">
+          <p>This customer record does not exist or does not belong to this store.</p>
         </Banner>
       </Page>
     );
@@ -662,7 +661,7 @@ export default function CustomerDetailPage() {
     <Page
       title={customerName(customer)}
       subtitle={customer.email ?? undefined}
-      backAction={{ content: "Müşteriler", url: "/app/customers" }}
+      backAction={{ content: "Customers", url: "/app/customers" }}
     >
       <TitleBar title={customerName(customer)} />
       <Layout>
@@ -683,7 +682,7 @@ export default function CustomerDetailPage() {
             </InlineGrid>
             <ManualPointsCard disabled={navigation.state === "submitting"} />
             <Text as="h2" variant="headingMd">
-              Puan Geçmişi
+              Points history
             </Text>
             <LedgerCard ledger={ledger} />
           </BlockStack>

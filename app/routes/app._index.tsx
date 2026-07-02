@@ -66,19 +66,19 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   };
 };
 
-const numberFormatter = new Intl.NumberFormat("tr-TR");
+const numberFormatter = new Intl.NumberFormat("en-US");
 
 function fmt(n: number): string {
   return numberFormatter.format(n);
 }
 
 const MOVEMENT_LABELS: Record<string, { label: string; tone: "success" | "critical" | "info" | "warning" }> = {
-  earn: { label: "Kazanım", tone: "success" },
-  redeem: { label: "Harcama", tone: "info" },
-  refund_reversal: { label: "İade düzeltmesi", tone: "warning" },
-  cancel_reversal: { label: "İptal düzeltmesi", tone: "warning" },
-  expired: { label: "Yanan", tone: "critical" },
-  manual: { label: "Manuel", tone: "info" },
+  earn: { label: "Earned", tone: "success" },
+  redeem: { label: "Redeemed", tone: "info" },
+  refund_reversal: { label: "Refund reversal", tone: "warning" },
+  cancel_reversal: { label: "Cancel reversal", tone: "warning" },
+  expired: { label: "Expired", tone: "critical" },
+  manual: { label: "Manual", tone: "info" },
 };
 
 function StatCard({ label, value, suffix }: { label: string; value: string; suffix?: string }) {
@@ -110,7 +110,7 @@ function TierDistribution({ stats }: { stats: DashboardStats }) {
     <Card>
       <BlockStack gap="300">
         <Text as="h2" variant="headingMd">
-          Tier Dağılımı
+          Tier distribution
         </Text>
         {total === 0 ? (
           <Text as="p" tone="subdued" variant="bodySm">
@@ -146,7 +146,7 @@ function RecentActivity({ activity }: { activity: ActivityItem[] }) {
     <Card padding="0">
       <Box padding="400">
         <Text as="h2" variant="headingMd">
-          Son Aktiviteler
+          Recent activity
         </Text>
       </Box>
       {activity.length === 0 ? (
@@ -210,12 +210,12 @@ export default function Dashboard() {
         <TitleBar title="Anka Loyalty" />
         <Card>
           <EmptyState
-            heading="Mağaza kaydı bulunamadı"
+            heading="Store record not found"
             image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
           >
             <p>
-              Bu mağaza için henüz bir Anka Loyalty kaydı yok. Uygulamayı yeniden
-              kurmayı deneyin.
+              There is no Anka Loyalty record for this store yet. Try reinstalling
+              the app.
             </p>
           </EmptyState>
         </Card>
@@ -230,8 +230,8 @@ export default function Dashboard() {
       <TitleBar title="Anka Loyalty" />
       <BlockStack gap="400">
         {programPaused ? (
-          <Banner tone="warning" title="Program duraklatılmış">
-            <p>Yeni siparişler için puan kazanımı şu anda durdurulmuş durumda.</p>
+          <Banner tone="warning" title="Program paused">
+            <p>Point earning for new orders is currently disabled.</p>
           </Banner>
         ) : null}
 
@@ -239,16 +239,16 @@ export default function Dashboard() {
           <Layout.Section>
             <BlockStack gap="400">
               <InlineGrid columns={{ xs: 1, sm: 2, md: 4 }} gap="400">
-                <StatCard label="Toplam Üye" value={fmt(stats.total_members)} />
-                <StatCard label="Aktif Üye" value={fmt(stats.active_members)} suffix="sipariş vermiş" />
-                <StatCard label="Dağıtılan Puan" value={fmt(stats.points_earned)} />
-                <StatCard label="Harcanan/İade" value={fmt(stats.points_redeemed)} />
+                <StatCard label="Total members" value={fmt(stats.total_members)} />
+                <StatCard label="Active members" value={fmt(stats.active_members)} suffix="with orders" />
+                <StatCard label="Points issued" value={fmt(stats.points_earned)} />
+                <StatCard label="Redeemed/refunded" value={fmt(stats.points_redeemed)} />
               </InlineGrid>
 
               <Card>
                 <BlockStack gap="200">
                   <Text as="h2" variant="headingMd">
-                    Dolaşımdaki Net Puan
+                    Net points in circulation
                   </Text>
                   <Text as="p" variant="heading2xl" tone="success">
                     {fmt(stats.net_points)}

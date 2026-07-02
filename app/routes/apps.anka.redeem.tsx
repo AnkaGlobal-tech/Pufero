@@ -16,6 +16,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   }
 
   const { session } = await authenticate.public.appProxy(request);
+  if (!session) {
+    return json({ ok: false, error: "Unauthorized" }, { status: 401 });
+  }
+
   const store = await getStoreByDomain(session.shop);
 
   if (!store?.is_active) {
@@ -31,7 +35,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   if (!shopifyCustomerId || !Number.isFinite(shopifyCustomerId)) {
     return json(
-      { ok: false, error: "Kupon için giriş yapmalısınız." },
+      { ok: false, error: "Sign in to redeem a coupon." },
       { status: 401 },
     );
   }
@@ -39,7 +43,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const form = await request.formData();
   const redemptionId = String(form.get("redemption_id") ?? "").trim();
   if (!redemptionId) {
-    return json({ ok: false, error: "Kupon kademesi seçilmedi." }, { status: 400 });
+    return json({ ok: false, error: "No redemption tier selected." }, { status: 400 });
   }
 
   const customerId = await getCustomerIdByShopifyId({
@@ -49,7 +53,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   if (!customerId) {
     return json(
-      { ok: false, error: "Henüz sadakat kaydınız yok. İlk siparişten sonra tekrar deneyin." },
+      { ok: false, error: "No loyalty record yet. Try again after your first order." },
       { status: 404 },
     );
   }
@@ -78,7 +82,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     return json(
       {
         ok: false,
-        error: error instanceof Error ? error.message : "Kupon oluşturulamadı.",
+        error: error instanceof Error ? error.message : "Could not create coupon.",
       },
       { status: 400 },
     );

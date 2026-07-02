@@ -49,7 +49,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const store = await getStoreByDomain(session.shop);
 
   if (!store) {
-    return { ok: false as const, error: "Mağaza bulunamadı." };
+    return { ok: false as const, error: "Store not found." };
   }
 
   const form = await request.formData();
@@ -60,7 +60,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const drafts = await fetchDraftOrders({ admin, storeId: store.id, limit: 50 });
     const draft = drafts.find((d) => d.id === draftId);
     if (!draft) {
-      return { ok: false as const, error: "Taslak sipariş bulunamadı." };
+      return { ok: false as const, error: "Draft order not found." };
     }
     const result = await awardDraftOrderPoints({ store, draft });
     if (!result.ok) {
@@ -70,7 +70,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   }
 
   if (!Number.isFinite(orderId) || orderId <= 0) {
-    return { ok: false as const, error: "Geçersiz sipariş." };
+    return { ok: false as const, error: "Invalid order." };
   }
 
   const result = await awardOrderPoints({ admin, store, orderId });
@@ -81,20 +81,20 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   return { ok: true as const, orderId, points: result.points };
 };
 
-const numberFormatter = new Intl.NumberFormat("tr-TR");
-const currencyFormatter = new Intl.NumberFormat("tr-TR", {
+const numberFormatter = new Intl.NumberFormat("en-US");
+const currencyFormatter = new Intl.NumberFormat("en-US", {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 });
-const dateFormatter = new Intl.DateTimeFormat("tr-TR", {
+const dateFormatter = new Intl.DateTimeFormat("en-US", {
   dateStyle: "medium",
   timeStyle: "short",
 });
 
 const DRAFT_STATUS_LABELS: Record<string, string> = {
-  OPEN: "Açık",
-  INVOICE_SENT: "Fatura gönderildi",
-  COMPLETED: "Tamamlandı",
+  OPEN: "Open",
+  INVOICE_SENT: "Invoice sent",
+  COMPLETED: "Completed",
 };
 
 function formatDate(value: string): string {
@@ -109,16 +109,16 @@ function PointsStatusBadge({ order }: { order: OrderRow }) {
       return (
         <Badge tone="success">
           {order.pointsAwarded != null
-            ? `+${numberFormatter.format(order.pointsAwarded)} puan`
-            : "Verildi"}
+            ? `+${numberFormatter.format(order.pointsAwarded)} pts`
+            : "Awarded"}
         </Badge>
       );
     case "pending":
-      return <Badge tone="attention">Bekliyor</Badge>;
+      return <Badge tone="attention">Pending</Badge>;
     case "guest":
-      return <Badge tone="info">Misafir</Badge>;
+      return <Badge tone="info">Guest</Badge>;
     case "cancelled":
-      return <Badge tone="critical">İptal</Badge>;
+      return <Badge tone="critical">Cancelled</Badge>;
   }
 }
 
@@ -133,7 +133,7 @@ function OrdersTable({
     return (
       <Card>
         <Text as="p" variant="bodyMd" tone="subdued">
-          Sipariş yok
+          No orders
         </Text>
       </Card>
     );
@@ -189,7 +189,7 @@ function OrdersTable({
               size="slim"
               loading={submittingOrderId === order.id}
             >
-              Puan ver
+              Award points
             </Button>
           </Form>
         ) : (
@@ -207,13 +207,13 @@ function OrdersTable({
         itemCount={orders.length}
         selectable={false}
         headings={[
-          { title: "Sipariş" },
-          { title: "Müşteri" },
-          { title: "Ara toplam" },
-          { title: "Tarih" },
-          { title: "Puan durumu" },
-          { title: "Puan" },
-          { title: "İşlem" },
+          { title: "Order" },
+          { title: "Customer" },
+          { title: "Subtotal" },
+          { title: "Date" },
+          { title: "Points status" },
+          { title: "Points" },
+          { title: "Action" },
         ]}
       >
         {rows}
@@ -228,14 +228,14 @@ function DraftPointsStatusBadge({ draft }: { draft: DraftOrderRow }) {
       return (
         <Badge tone="success">
           {draft.pointsAwarded != null
-            ? `+${numberFormatter.format(draft.pointsAwarded)} puan`
-            : "Verildi"}
+            ? `+${numberFormatter.format(draft.pointsAwarded)} pts`
+            : "Awarded"}
         </Badge>
       );
     case "pending":
-      return <Badge tone="attention">Bekliyor</Badge>;
+      return <Badge tone="attention">Pending</Badge>;
     case "guest":
-      return <Badge tone="info">Misafir</Badge>;
+      return <Badge tone="info">Guest</Badge>;
     default:
       return <Badge tone="info">{draft.status}</Badge>;
   }
@@ -252,7 +252,7 @@ function DraftOrdersTable({
     return (
       <Card>
         <Text as="p" variant="bodyMd" tone="subdued">
-          Taslak sipariş yok
+          No draft orders
         </Text>
       </Card>
     );
@@ -311,7 +311,7 @@ function DraftOrdersTable({
               size="slim"
               loading={submittingDraftId === draft.id}
             >
-              Puan ver
+              Award points
             </Button>
           </Form>
         ) : (
@@ -329,14 +329,14 @@ function DraftOrdersTable({
         itemCount={drafts.length}
         selectable={false}
         headings={[
-          { title: "Taslak" },
-          { title: "Müşteri" },
-          { title: "Ara toplam" },
-          { title: "Durum" },
-          { title: "Puan durumu" },
-          { title: "Puan" },
-          { title: "Güncelleme" },
-          { title: "İşlem" },
+          { title: "Draft" },
+          { title: "Customer" },
+          { title: "Subtotal" },
+          { title: "Status" },
+          { title: "Points status" },
+          { title: "Points" },
+          { title: "Updated" },
+          { title: "Action" },
         ]}
       >
         {rows}
@@ -365,7 +365,7 @@ export default function OrdersPage() {
     if (!actionData || navigation.state !== "idle") return;
     if (actionData.ok) {
       shopify.toast.show(
-        `+${numberFormatter.format(actionData.points)} puan verildi`,
+        `+${numberFormatter.format(actionData.points)} points awarded`,
       );
     } else {
       shopify.toast.show(actionData.error, { isError: true });
@@ -374,9 +374,9 @@ export default function OrdersPage() {
 
   if (data.missingStore) {
     return (
-      <Page title="Siparişler">
-        <TitleBar title="Siparişler" />
-        <Banner tone="critical" title="Mağaza kaydı bulunamadı" />
+      <Page title="Orders">
+        <TitleBar title="Orders" />
+        <Banner tone="critical" title="Store record not found" />
       </Page>
     );
   }
@@ -384,13 +384,13 @@ export default function OrdersPage() {
   const { orders, drafts } = data;
 
   return (
-    <Page title="Siparişler">
-      <TitleBar title="Siparişler" />
+    <Page title="Orders">
+      <TitleBar title="Orders" />
       <Layout>
         <Layout.Section>
           <BlockStack gap="400">
             <Text as="h2" variant="headingMd">
-              Siparişler
+              Orders
             </Text>
             <OrdersTable
               orders={orders}
@@ -400,7 +400,7 @@ export default function OrdersPage() {
             />
 
             <Text as="h2" variant="headingMd">
-              Taslak siparişler
+              Draft orders
             </Text>
             <DraftOrdersTable
               drafts={drafts}

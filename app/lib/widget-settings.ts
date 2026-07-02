@@ -99,29 +99,29 @@ export const LOCALE_COPY_FIELDS: Array<{
   multiline?: boolean;
   help?: string;
 }> = [
-  { key: "launcher_label", label: "Launcher butonu" },
+  { key: "launcher_label", label: "Launcher button" },
   {
     key: "nudge_text",
-    label: "Nudge balonu",
-    help: "{{balance}} = puan bakiyesi",
+    label: "Nudge bubble",
+    help: "{{balance}} = points balance",
   },
-  { key: "guest_headline", label: "Misafir başlık" },
+  { key: "guest_headline", label: "Guest headline" },
   {
     key: "guest_body",
-    label: "Misafir açıklama",
+    label: "Guest description",
     multiline: true,
-    help: "{{points_per_dollar}} kullanılabilir",
+    help: "{{points_per_dollar}} available",
   },
-  { key: "tab_earn", label: "Sekme: Kazan" },
-  { key: "tab_spend", label: "Sekme: Harca" },
-  { key: "create_coupon", label: "Kupon oluştur butonu" },
-  { key: "points_label", label: "Puan etiketi (balance altı)" },
+  { key: "tab_earn", label: "Tab: Earn" },
+  { key: "tab_spend", label: "Tab: Spend" },
+  { key: "create_coupon", label: "Create coupon button" },
+  { key: "points_label", label: "Points label (below balance)" },
   {
     key: "spend_to_next",
-    label: "Sonraki tier metni",
+    label: "Next tier message",
     help: "{{amount}}, {{tier}}",
   },
-  { key: "top_tier", label: "En üst tier mesajı" },
+  { key: "top_tier", label: "Top tier message" },
 ];
 
 export function defaultCopyForLocale(locale: string): WidgetLocaleCopy {

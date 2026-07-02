@@ -460,7 +460,7 @@ async function applyMissingCampaignAdjustment(params: {
     source: "campaign",
     sourceId: adjustmentSourceId,
     shopifyOrderId: params.shopifyOrderId,
-    description: `${params.descriptionPrefix} — kampanya düzeltmesi (${earn.campaignName})`,
+    description: `${params.descriptionPrefix} — campaign adjustment (${earn.campaignName})`,
     metadata: {
       campaign_id: earn.campaignId,
       campaign_multiplier: earn.campaignMultiplier,
@@ -522,7 +522,7 @@ export async function earnOrderPoints(params: {
             fallbackSubtotal: fallback,
             pointsPerDollar: config.pointsPerDollar,
             shopifyCustomerId: order.customer.id,
-            descriptionPrefix: `Taslak sipariş #${draftId}`,
+            descriptionPrefix: `Draft order #${draftId}`,
           });
         }
       }
@@ -564,7 +564,7 @@ export async function earnOrderPoints(params: {
       fallbackSubtotal: fallback,
       pointsPerDollar: config.pointsPerDollar,
       shopifyCustomerId: order.customer.id,
-      descriptionPrefix: `Sipariş #${orderId}`,
+      descriptionPrefix: `Order #${orderId}`,
     });
     console.log(`[points-engine] order=${orderId} earn zaten işlenmiş — kampanya kontrol edildi`);
     return;
@@ -597,8 +597,8 @@ export async function earnOrderPoints(params: {
       sourceId: String(orderId),
       shopifyOrderId: orderId,
       description: earn.campaignName
-        ? `Sipariş #${orderId} — ${earn.campaignName}`
-        : `Sipariş #${orderId} satın alma puanı`,
+        ? `Order #${orderId} — ${earn.campaignName}`
+        : `Order #${orderId} purchase points`,
       metadata: {
         eligible_amount: earn.eligibleAmount,
         excluded_amount: earn.excludedAmount,
@@ -618,7 +618,7 @@ export async function earnOrderPoints(params: {
     eligibleAmount: earn.eligibleAmount,
     shopifyOrderId: orderId,
     sourceKey: String(orderId),
-    descriptionPrefix: `Sipariş #${orderId}`,
+    descriptionPrefix: `Order #${orderId}`,
   });
 
   await adjustCustomerTotals({
@@ -700,7 +700,7 @@ export async function earnDraftOrderPoints(params: {
       fallbackSubtotal: fallback,
       pointsPerDollar: config.pointsPerDollar,
       shopifyCustomerId: draft.customer.id,
-      descriptionPrefix: `Taslak sipariş #${draftId}`,
+      descriptionPrefix: `Draft order #${draftId}`,
     });
   }
 
@@ -725,8 +725,8 @@ export async function earnDraftOrderPoints(params: {
         source: earn.campaignId ? "campaign" : "purchase",
         sourceId,
         description: earn.campaignName
-          ? `Taslak sipariş #${draftId} — ${earn.campaignName}`
-          : `Taslak sipariş #${draftId} puanı`,
+          ? `Draft order #${draftId} — ${earn.campaignName}`
+          : `Draft order #${draftId} points`,
         metadata: {
           draft_order_id: draftId,
           eligible_amount: earn.eligibleAmount,
@@ -760,7 +760,7 @@ export async function earnDraftOrderPoints(params: {
       orderCountBefore: customer.order_count,
       eligibleAmount: bonusEligible,
       sourceKey: sourceId,
-      descriptionPrefix: `Taslak sipariş #${draftId}`,
+      descriptionPrefix: `Draft order #${draftId}`,
       metadata: { draft_order_id: draftId },
     });
   }
@@ -824,7 +824,7 @@ export async function reverseDraftOrderOnDelete(params: {
       points: -netPoints,
       source: "purchase",
       sourceId: reversalSourceId,
-      description: `Taslak sipariş #${draftId} silindi — puan geri alındı`,
+      description: `Draft order #${draftId} deleted — points reversed`,
     });
   }
 
@@ -886,7 +886,7 @@ export async function reverseOrderOnCancel(params: {
       source: "purchase",
       sourceId: String(orderId),
       shopifyOrderId: orderId,
-      description: `Sipariş #${orderId} iptali — puan geri alındı`,
+      description: `Order #${orderId} cancellation — points reversed`,
     });
   }
 
@@ -980,7 +980,7 @@ export async function reverseOrderOnRefund(params: {
       source: "purchase",
       sourceId: String(refundId),
       shopifyOrderId: orderId,
-      description: `Sipariş #${orderId} iadesi — ${points} puan geri alındı`,
+      description: `Order #${orderId} refund — ${points} points reversed`,
       metadata: { refunded_subtotal: refundedSubtotal },
     });
   }

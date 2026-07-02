@@ -229,7 +229,7 @@ export async function fetchRecentOrders(params: {
 
   if (json.errors?.length) {
     console.error("[orders] orders query failed:", json.errors);
-    throw new Error("Shopify sipariş listesi alınamadı.");
+    throw new Error("Could not fetch Shopify order list.");
   }
 
   const edges = json.data?.orders?.edges ?? [];
@@ -429,7 +429,7 @@ export async function awardDraftOrderPoints(params: {
   draft: DraftOrderRow;
 }): Promise<{ ok: true; points: number } | { ok: false; error: string }> {
   if (!params.draft.hasCustomer || !params.draft.customerShopifyId) {
-    return { ok: false, error: "Müşteri seçilmemiş taslak siparişe puan verilemez." };
+    return { ok: false, error: "Cannot award points to a draft order without a selected customer." };
   }
 
   const points = await earnDraftOrderPoints({
@@ -440,7 +440,7 @@ export async function awardDraftOrderPoints(params: {
     return { ok: true, points: params.draft.pointsAwarded ?? 0 };
   }
   if (points === 0) {
-    return { ok: false, error: "Puan verilemedi (program duraklatılmış veya tutar sıfır)." };
+    return { ok: false, error: "Could not award points (program paused or zero amount)." };
   }
 
   return { ok: true, points };
@@ -460,11 +460,11 @@ export async function awardOrderPoints(params: {
   const order = json.data?.order as Record<string, unknown> | null;
 
   if (!order) {
-    return { ok: false, error: "Sipariş Shopify'da bulunamadı." };
+    return { ok: false, error: "Order not found in Shopify." };
   }
 
   if (order.cancelledAt) {
-    return { ok: false, error: "İptal edilmiş siparişe puan verilemez." };
+    return { ok: false, error: "Cannot award points to a cancelled order." };
   }
 
   const customer = order.customer as {
@@ -477,7 +477,7 @@ export async function awardOrderPoints(params: {
   if (!customer?.legacyResourceId) {
     return {
       ok: false,
-      error: "Misafir checkout — müşteri kaydı olmadan puan verilemez.",
+      error: "Guest checkout — cannot award points without a customer record.",
     };
   }
 
