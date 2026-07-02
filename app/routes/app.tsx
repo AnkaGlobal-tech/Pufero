@@ -27,6 +27,7 @@ export default function App() {
         <Link to="/app/program">Program</Link>
         <Link to="/app/customers">Müşteriler</Link>
         <Link to="/app/orders">Siparişler</Link>
+        <Link to="/app/appearance">Görünüm</Link>
       </NavMenu>
       <Outlet />
     </AppProvider>

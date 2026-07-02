@@ -2,58 +2,15 @@ import { getSupabaseAdmin } from "./supabase.server";
 import { listEnabledRedemptions } from "./redemption.server";
 import type { RedemptionTier } from "./redemption.server";
 
-export interface WidgetSettings {
-  enabled: boolean;
-  primary_color: string;
-  background_color: string;
-  text_color: string;
-  position: "bottom-right" | "bottom-left";
-  nudge_enabled: boolean;
-  nudge_text: string;
-  launcher_label: string;
-}
-
-export const DEFAULT_WIDGET_SETTINGS: WidgetSettings = {
-  enabled: true,
-  primary_color: "#C9A84C",
-  background_color: "#0F1B2D",
-  text_color: "#F7F5F0",
-  position: "bottom-right",
-  nudge_enabled: true,
-  nudge_text: "{{balance}} puanın var! 💰",
-  launcher_label: "Ödüller",
-};
+import {
+  parseWidgetSettings,
+  type WidgetSettings,
+} from "./widget-settings";
 
 function toNumber(value: unknown): number {
   if (value == null) return 0;
   const n = typeof value === "number" ? value : parseFloat(String(value));
   return Number.isFinite(n) ? n : 0;
-}
-
-export function parseWidgetSettings(raw: unknown): WidgetSettings {
-  const obj = (raw && typeof raw === "object" ? raw : {}) as Record<
-    string,
-    unknown
-  >;
-  return {
-    enabled: obj.enabled !== false,
-    primary_color: String(obj.primary_color ?? DEFAULT_WIDGET_SETTINGS.primary_color),
-    background_color: String(
-      obj.background_color ?? DEFAULT_WIDGET_SETTINGS.background_color,
-    ),
-    text_color: String(obj.text_color ?? DEFAULT_WIDGET_SETTINGS.text_color),
-    position:
-      obj.position === "bottom-left" ? "bottom-left" : "bottom-right",
-    nudge_enabled: obj.nudge_enabled !== false,
-    nudge_text: String(obj.nudge_text ?? DEFAULT_WIDGET_SETTINGS.nudge_text),
-    launcher_label: String(
-      obj.launcher_label ?? DEFAULT_WIDGET_SETTINGS.launcher_label,
-    ),
-  };
-}
-
-export function formatNudgeText(template: string, balance: number): string {
-  return template.replace(/\{\{balance\}\}/g, String(Math.max(0, balance)));
 }
 
 interface TierRow {
@@ -186,8 +143,11 @@ export async function getWidgetPayload(params: {
       isMember: false,
       member: null,
       guest: {
-        headline: "Sadakat programına katılın",
-        body: `Her $1 harcamada ${Math.floor(toNumber(store.points_per_dollar))} puan kazanın. Puanlarınızı indirim kuponlarına dönüştürün.`,
+        headline: settings.guest_headline,
+        body: settings.guest_body.replace(
+          /\{\{points_per_dollar\}\}/g,
+          String(Math.floor(toNumber(store.points_per_dollar))),
+        ),
         registerUrl: "/account/register",
         loginUrl: "/account/login",
       },
@@ -213,8 +173,11 @@ export async function getWidgetPayload(params: {
       isMember: false,
       member: null,
       guest: {
-        headline: "Sadakat programına hoş geldiniz",
-        body: "İlk siparişinizden itibaren puan kazanmaya başlayacaksınız.",
+        headline: settings.guest_headline,
+        body: settings.guest_body.replace(
+          /\{\{points_per_dollar\}\}/g,
+          String(Math.floor(toNumber(store.points_per_dollar))),
+        ),
         registerUrl: "/account/register",
         loginUrl: "/account/login",
       },
