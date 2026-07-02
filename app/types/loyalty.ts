@@ -1,4 +1,4 @@
-/** Supabase enum tipleri — migration dosyalariyla senkron tutulmali. */
+/** Supabase enum types — keep in sync with migration files. */
 
 export type LedgerMovementType =
   | "earn"

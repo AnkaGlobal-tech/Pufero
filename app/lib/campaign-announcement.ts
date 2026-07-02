@@ -12,7 +12,7 @@ function fmtDate(iso: string): string {
   }
 }
 
-/** Mağazanın kopyalayabileceği kampanya duyuru metni. */
+/** Copy-paste campaign announcement text for merchants. */
 export function buildCampaignAnnouncementText(campaign: CampaignRow): string {
   const scope =
     campaign.collection_ids.length > 0

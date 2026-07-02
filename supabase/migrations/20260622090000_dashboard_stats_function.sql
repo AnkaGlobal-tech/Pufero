@@ -1,4 +1,4 @@
--- Dashboard istatistikleri — tek sorguda toplama (admin Dashboard loader kullanır)
+-- Dashboard stats — single-query aggregates (admin Dashboard loader)
 
 CREATE OR REPLACE FUNCTION store_dashboard_stats(p_store_id uuid)
 RETURNS json

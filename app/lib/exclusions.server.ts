@@ -127,7 +127,7 @@ export function isProductExcluded(
   return false;
 }
 
-/** Hariç tutulan ürün/koleksiyonlar düşüldükten sonra puan tabanı. */
+/** Points base after excluding products/collections. */
 export async function computeEligibleSubtotal(params: {
   storeId: string;
   shopDomain: string;
@@ -192,7 +192,7 @@ export async function computeEligibleSubtotal(params: {
   return { eligibleAmount: eligible, excludedAmount: excluded };
 }
 
-/** Kampanya koleksiyon filtresi: en az bir uygun satır kampanya koleksiyonunda mı? */
+/** Campaign collection filter: does at least one eligible line match? */
 export async function orderMatchesCampaignCollections(params: {
   shopDomain: string;
   lineItems: OrderLineItem[];

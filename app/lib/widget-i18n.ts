@@ -1,4 +1,4 @@
-/** Storefront widget metinleri — dil bazlı. */
+/** Storefront widget copy — per locale. */
 export interface WidgetLocaleCopy {
   launcher_label: string;
   nudge_text: string;
@@ -11,7 +11,7 @@ export interface WidgetLocaleCopy {
   creating_coupon: string;
   close_label: string;
   top_tier: string;
-  /** {{amount}} ve {{tier}} yer tutucuları */
+  /** Placeholders: {{amount}}, {{tier}} */
   spend_to_next: string;
   earn_per_dollar: string;
   earn_per_dollar_hint: string;
@@ -128,7 +128,7 @@ export function interpolateCopy(
   );
 }
 
-/** Shopify locale kodundan okunabilir etiket */
+/** Human-readable label from Shopify locale code */
 export function localeDisplayName(code: string): string {
   const names: Record<string, string> = {
     en: "English",

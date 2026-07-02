@@ -74,8 +74,8 @@ async function bonusAlreadyAwarded(
 }
 
 /**
- * Satın alma/taslak sonrası sıra ve bulk bonusları uygular.
- * orderCountBefore: adjustCustomerTotals öncesi müşteri sipariş sayısı.
+ * Apply sequence and bulk bonuses after purchase/draft.
+ * orderCountBefore: customer order count before adjustCustomerTotals.
  */
 export async function applyPurchaseBonuses(params: {
   storeId: string;
@@ -83,7 +83,7 @@ export async function applyPurchaseBonuses(params: {
   orderCountBefore: number;
   eligibleAmount: number;
   shopifyOrderId?: number;
-  /** Idempotency prefix: "123" (order) veya "draft-456" */
+  /** Idempotency prefix: "123" (order) or "draft-456" */
   sourceKey: string;
   descriptionPrefix: string;
   metadata?: Record<string, unknown>;
@@ -100,7 +100,7 @@ export async function applyPurchaseBonuses(params: {
   if (sequenceRule && rules.has(sequenceRule)) {
     const rule = rules.get(sequenceRule)!;
     const points = Math.max(0, Math.floor(toNumber(rule.points_value)));
-    // Sıra bonusları müşteri başına tek seferlik — sipariş/taslak bazlı değil
+    // Sequence bonuses are once per customer — not per order/draft
     const sourceId = `customer-${params.customerId}-bonus-${sequenceRule}`;
 
     if (points > 0 && !(await bonusAlreadyAwarded(params.storeId, sourceId))) {
@@ -299,7 +299,7 @@ async function awardLifecycleBonus(params: {
   return points;
 }
 
-/** customers/create → hesap oluşturma bonusu (tek seferlik). */
+/** customers/create — account creation bonus (one-time). */
 export async function applyAccountCreationBonus(params: {
   storeId: string;
   payload: Record<string, unknown>;
@@ -336,7 +336,7 @@ function normalizeBirthdayDate(value: string): string | null {
   return parsed.toISOString().slice(0, 10);
 }
 
-/** customers/update payload'ından doğum günü çıkarır (metafield veya doğrudan alan). */
+/** Extract birthday from customers/update payload (metafield or direct field). */
 export function parseBirthdayFromCustomerPayload(
   payload: Record<string, unknown>,
 ): string | null {
@@ -365,7 +365,7 @@ export function parseBirthdayFromCustomerPayload(
   return null;
 }
 
-/** customers/update → profil senkronu + doğum günü kaydı. */
+/** customers/update — profile sync + birthday record. */
 export async function syncCustomerFromWebhook(params: {
   storeId: string;
   payload: Record<string, unknown>;
@@ -403,8 +403,8 @@ function isBirthdayToday(birthday: string, reference: Date): boolean {
 }
 
 /**
- * Bugün doğum günü olan müşterilere yıllık bonus verir.
- * Dashboard açılışında hafif cron olarak çalıştırılır.
+ * Award annual birthday bonus to customers whose birthday is today.
+ * Light cron on dashboard load.
  */
 export async function processBirthdayBonuses(storeId: string): Promise<number> {
   if (await isProgramPaused(storeId)) {

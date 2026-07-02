@@ -393,7 +393,7 @@ function draftToPayload(draft: DraftOrderRow): Record<string, unknown> {
   };
 }
 
-/** Kaçırılan taslak siparişler için puan ver (Dashboard/Siparişler açılışında). */
+/** Award points for missed draft orders (on Dashboard/Orders load). */
 export async function syncPendingDraftOrders(params: {
   admin: AdminApiContext;
   store: StoreRecord;
@@ -446,7 +446,7 @@ export async function awardDraftOrderPoints(params: {
   return { ok: true, points };
 }
 
-/** Tek sipariş için puan ver (webhook kaçırdıysa veya geçmiş sipariş). Idempotent. */
+/** Award points for a single order (missed webhook or historical). Idempotent. */
 export async function awardOrderPoints(params: {
   admin: AdminApiContext;
   store: StoreRecord;

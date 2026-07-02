@@ -169,7 +169,7 @@ export interface RedeemResult {
   redemptionName: string;
 }
 
-/** Puan düş + Shopify tek kullanımlık müşteri kuponu üret. */
+/** Deduct points + create single-use Shopify customer discount. */
 export async function redeemPointsForCustomer(params: {
   storeId: string;
   customerId: string;

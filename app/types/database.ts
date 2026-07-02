@@ -1,12 +1,11 @@
 /**
- * Supabase üretilmiş tip tanımları (placeholder).
+ * Generated Supabase type definitions (placeholder).
  *
- * NOT: Bu dosya `supabase gen types typescript` çıktısıyla doldurulmalı.
- * Üretim için AnkaLoyalty Supabase projesine (loyalty: stores/customers/points_ledger/...)
- * bağlı bir erişim tokenı gerekir. Şu an elle yazılan tipler `app/types/loyalty.ts`
- * ve ilgili `*.server.ts` dosyalarındaki arayüzlerden geliyor.
+ * Populate via `supabase gen types typescript`.
+ * Requires access to the AnkaLoyalty Supabase project (stores/customers/points_ledger/...).
+ * Hand-written types live in `app/types/loyalty.ts` and related `*.server.ts` interfaces until then.
  *
- * Henüz hiçbir yerde import edilmiyor; doğru tipler üretilene kadar boş bırakıldı.
+ * Not imported anywhere yet; left empty until generated types are available.
  */
 
 export type Json =

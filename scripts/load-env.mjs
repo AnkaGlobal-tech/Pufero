@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-/** Node --env-file ile SUPABASE_* satirlari yuklenmiyor; basit parser. */
+/** Simple .env parser when Node --env-file does not load SUPABASE_* lines. */
 export function loadEnvFile(filename = ".env") {
   const path = resolve(process.cwd(), filename);
   let content;
@@ -24,7 +24,7 @@ export function loadEnvFile(filename = ".env") {
 
     if (!key) continue;
 
-    // Cift tirnak icindeki degerleri ayikla
+    // Strip surrounding quotes from values
     const unquoted =
       value.length >= 2 &&
       ((value.startsWith('"') && value.endsWith('"')) ||

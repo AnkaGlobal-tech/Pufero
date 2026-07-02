@@ -1,4 +1,4 @@
--- Admin tarafindan manuel atanan tier otomatik yeniden hesaplamadan korunur.
+-- Manually assigned tier is protected from automatic recalculation.
 
 ALTER TABLE customers
   ADD COLUMN IF NOT EXISTS tier_manual_override BOOLEAN NOT NULL DEFAULT false;

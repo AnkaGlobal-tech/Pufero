@@ -69,7 +69,7 @@ function nodesToLineItems(
     .filter((li) => li.product_id != null || li.pre_tax_price != null || li.price);
 }
 
-/** Webhook payload'ından line item çıkarır (REST snake_case). */
+/** Extract line items from webhook payload (REST snake_case). */
 export function lineItemsFromPayload(
   payload: Record<string, unknown>,
 ): OrderLineItem[] {
@@ -129,7 +129,7 @@ export async function fetchOrderLineItems(
   }
 }
 
-/** Tamamlanan siparişe bağlı taslak ID (varsa). */
+/** Draft ID linked to a completed order, if any. */
 export async function resolveDraftIdForOrder(
   shopDomain: string,
   orderId: number,
@@ -169,7 +169,7 @@ export async function resolveDraftIdForOrder(
   return null;
 }
 
-/** Webhook'ta eksikse Shopify Admin'den line item tamamlar. */
+/** Fill missing line items from Shopify Admin when absent in webhook. */
 export async function resolveLineItemsForEarn(params: {
   shopDomain: string;
   payload: Record<string, unknown>;

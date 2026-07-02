@@ -22,10 +22,10 @@ export const handleOrdersCancelled: WebhookHandler = async ({ shop, payload, sto
   await reverseOrderOnCancel({ store, payload });
 };
 
-/** orders/edited: puan yeniden hesaplama Gün 6'da netleşecek — şimdilik log. */
+/** orders/edited: point recalculation deferred — log only for now. */
 export const handleOrdersEdited: WebhookHandler = async ({ shop, payload }) => {
   const orderId = payload.id;
-  console.log(`[orders/edited] shop=${shop} order=${orderId} (Gün 6'da işlenecek)`);
+  console.log(`[orders/edited] shop=${shop} order=${orderId} (handler pending)`);
 };
 
 export const handleRefundsCreate: WebhookHandler = async ({ shop, payload, store }) => {
@@ -67,7 +67,7 @@ export const handleCustomersDataRequest: WebhookHandler = async ({
   console.log(
     `[customers/data_request] shop=${shop} store=${store.id} customer=${customer?.id}`,
   );
-  // Merchant'a veri saglama sureci — payload webhook_events'te zaten sakli
+  // Merchant data request flow — payload already stored in webhook_events
 };
 
 export const handleCustomersRedact: WebhookHandler = async ({

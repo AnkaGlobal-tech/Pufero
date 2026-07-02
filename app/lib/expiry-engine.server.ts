@@ -82,8 +82,8 @@ async function reminderAlreadySent(
 }
 
 /**
- * Son aktiviteden X ay sonra puan yanması + 30/7 gün hatırlatma event'leri.
- * Dashboard açılışında hafif cron olarak çalışır.
+ * Expire points X months after last activity + 30/7 day reminder events.
+ * Light cron on dashboard load.
  */
 export async function processPointsExpiry(storeId: string): Promise<number> {
   const supabase = getSupabaseAdmin();

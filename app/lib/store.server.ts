@@ -13,11 +13,11 @@ export interface StoreRecord {
 }
 
 /**
- * Install / re-install sirasinda magazayi `stores` tablosuna upsert eder.
- * Ilk kurulumda `seed_store_defaults()` cagrilarak varsayilan tier/kural/redemption olusturulur.
+ * On install / re-install, upsert the shop into `stores`.
+ * First install calls `seed_store_defaults()` for default tiers/rules/redemptions.
  *
- * Re-install (uninstall sonrasi tekrar yukleme) durumunda mevcut veri korunur,
- * sadece `is_active=true`, `uninstalled_at=NULL`, `installed_at` guncellenir.
+ * Re-install preserves existing data; only sets is_active=true, uninstalled_at=NULL,
+ * and updates installed_at.
  */
 export async function upsertStoreOnInstall(params: {
   shopDomain: string;
@@ -77,7 +77,7 @@ export async function upsertStoreOnInstall(params: {
 }
 
 /**
- * Uninstall webhook'unda magazayi pasiflestirir. Veriler silinmez — GDPR webhook'lari ayri.
+ * Uninstall webhook: deactivate store. Data is retained — GDPR webhooks handle deletion.
  */
 export async function deactivateStoreOnUninstall(params: {
   shopDomain: string;

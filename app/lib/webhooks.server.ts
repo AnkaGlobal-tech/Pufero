@@ -198,7 +198,7 @@ export function createWebhookAction(handler: WebhookHandler) {
   };
 }
 
-/** Internal retry kuyrugu — cron veya manuel tetikleme icin (Gün 5+ handler registry ile genisletilir). */
+/** Internal retry queue — for cron or manual trigger (extend with handler registry). */
 export async function listRetryableWebhookEvents(limit = 25) {
   const supabase = getSupabaseAdmin();
   const now = new Date().toISOString();

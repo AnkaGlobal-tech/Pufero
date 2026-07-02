@@ -1,6 +1,6 @@
 import { getSupabaseAdmin } from "./supabase.server";
 
-/** Klaviyo entegrasyonu öncesi event kuyruğu. */
+/** Event queue before Klaviyo integration is enabled. */
 export async function logKlaviyoEvent(params: {
   storeId: string;
   customerId?: string | null;

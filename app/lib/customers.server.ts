@@ -36,7 +36,7 @@ function toNumber(value: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-/** Müşteri detayını (tier + bakiye dahil) getirir. Mağaza izolasyonu uygulanır. */
+/** Fetch customer detail (tier + balance). Store isolation enforced. */
 export async function getCustomerDetail(
   storeId: string,
   customerId: string,
@@ -102,7 +102,7 @@ export async function getCustomerDetail(
   };
 }
 
-/** Müşterinin puan hareketleri (en yeni önce). */
+/** Customer point movements (newest first). */
 export async function getCustomerLedger(
   storeId: string,
   customerId: string,
@@ -128,8 +128,8 @@ export async function getCustomerLedger(
 }
 
 /**
- * Manuel puan ekleme/çıkarma (Gün 7). Pozitif → ekleme, negatif → düşme.
- * Ledger append-only olduğu için bakiye otomatik güncellenir.
+ * Manual point add/remove (Day 7). Positive = credit, negative = debit.
+ * Balance updates automatically via append-only ledger.
  */
 export async function addManualPoints(params: {
   storeId: string;
@@ -165,7 +165,7 @@ export async function addManualPoints(params: {
     .eq("id", params.customerId);
 }
 
-/** Admin: müşteri tier'ını manuel ata veya otomatiğe döndür (tierId null). */
+/** Admin: assign manual tier or revert to automatic (tierId null). */
 export async function setCustomerTier(params: {
   storeId: string;
   customerId: string;

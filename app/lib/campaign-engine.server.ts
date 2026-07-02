@@ -58,7 +58,7 @@ export interface CampaignMultiplierResult {
   multiplier: number;
   campaignId: string | null;
   campaignName: string | null;
-  /** Kampanya çarpanının uygulandığı tutar (koleksiyon satırları). */
+  /** Amount the campaign multiplier applies to (collection line items). */
   campaignEligibleAmount: number;
 }
 
@@ -149,7 +149,7 @@ async function computeCampaignEligibleAmount(params: {
 }
 
 /**
- * Aktif kampanyalardan en yüksek geçerli çarpanı ve uygulanacak tutarı döner.
+ * Returns highest applicable active campaign multiplier and eligible amount.
  */
 export async function getCampaignMultiplier(params: {
   storeId: string;

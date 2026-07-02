@@ -5,7 +5,7 @@ import {
 } from "./widget-i18n";
 
 export type WidgetPosition = "bottom-right" | "bottom-left";
-/** Panel launcher'a göre hangi yönde açılır */
+/** Panel open direction relative to launcher */
 export type WidgetPanelDirection = "up" | "left" | "right";
 
 export interface WidgetSettings {
@@ -32,7 +32,7 @@ export const DEFAULT_WIDGET_SETTINGS: WidgetSettings = {
   locales: {},
 };
 
-/** Eski düz alan formatından migrasyon */
+/** Migrate legacy flat text fields into locales map */
 function migrateLegacySettings(
   obj: Record<string, unknown>,
 ): Record<string, Partial<WidgetLocaleCopy>> {

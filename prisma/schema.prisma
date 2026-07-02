@@ -1,5 +1,5 @@
-// Prisma sadece Shopify session storage tablosunu yonetir.
-// Uygulamanin asil semasi Supabase migrations'larinda (supabase/migrations/).
+// Prisma manages Shopify session storage only.
+// Application schema lives in Supabase migrations (supabase/migrations/).
 
 generator client {
   provider = "prisma-client-js"

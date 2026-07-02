@@ -18,7 +18,7 @@ const SHOP_LOCALES_QUERY = `#graphql
   }
 `;
 
-/** Mağazada yayınlanmış dilleri getirir (admin paneli için). */
+/** Fetch published shop locales (for admin appearance page). */
 export async function fetchShopLocales(
   admin: AdminApiContext,
 ): Promise<ShopLocaleInfo[]> {

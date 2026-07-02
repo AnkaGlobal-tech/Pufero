@@ -77,7 +77,7 @@ function isInactive(lastActivityAt: string | null, months: number | null): boole
   return new Date(lastActivityAt) < cutoff;
 }
 
-/** Harcama + opsiyonel hareketsizlik kuralına göre efektif tier. */
+/** Effective tier from spend + optional inactivity rule. */
 export function resolveEffectiveTier(params: {
   tiers: TierDef[];
   totalSpend: number;
@@ -104,7 +104,7 @@ export function resolveEffectiveTier(params: {
   return tiersAsc[spendIdx - 1] ?? spendTier;
 }
 
-/** Sipariş öncesi puan çarpanı (manuel tier veya harcama bazlı). */
+/** Purchase point multiplier before order (manual tier or spend-based). */
 export async function getPurchaseMultiplierForCustomer(params: {
   storeId: string;
   customerId: string;
@@ -162,7 +162,7 @@ export async function getPurchaseMultiplierForCustomer(params: {
   return multiplier > 0 ? multiplier : 1;
 }
 
-/** @deprecated earn akışında getPurchaseMultiplierForCustomer kullanın */
+/** @deprecated Use getPurchaseMultiplierForCustomer in earn flow */
 export async function getPointsMultiplierForCustomer(params: {
   storeId: string;
   totalSpend: number;
@@ -263,7 +263,7 @@ async function syncShopifyTierTags(params: {
   }
 }
 
-/** Müşteri harcaması / aktivitesine göre tier günceller + Shopify tag senkronu. */
+/** Update tier from spend/activity + sync Shopify customer tags. */
 export async function recalculateCustomerTier(params: {
   storeId: string;
   customerId: string;
@@ -335,7 +335,7 @@ export async function recalculateCustomerTier(params: {
   return changed;
 }
 
-/** tier_id atanmamış müşterilere tier atar (dashboard backfill). */
+/** Assign tier to customers missing tier_id (dashboard backfill). */
 export async function backfillMissingTiers(params: {
   storeId: string;
   shopDomain: string;
@@ -368,7 +368,7 @@ export async function backfillMissingTiers(params: {
   return updated;
 }
 
-/** Admin: manuel tier atama veya otomatiğe dönüş (tierId null). */
+/** Admin: manual tier assignment or revert to automatic (tierId null). */
 export async function setCustomerTierAssignment(params: {
   storeId: string;
   customerId: string;

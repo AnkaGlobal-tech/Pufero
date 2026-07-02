@@ -1,4 +1,4 @@
--- Müşteri listesi — bakiye + tier adı dahil (admin Müşteriler sayfası kullanır)
+-- Customer list with balance + tier name (admin Customers page)
 
 CREATE OR REPLACE FUNCTION store_customers_list(p_store_id uuid)
 RETURNS TABLE (

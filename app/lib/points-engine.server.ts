@@ -17,16 +17,16 @@ import {
 } from "./order-line-items.server";
 
 /**
- * Gün 5 — Puan motoru çekirdeği.
+ * Core points engine (Day 5).
  *
- * Kapsam (temel):
- * - Satın alma puanı: $1 = X puan (store.points_per_dollar), ürün ara toplamı (subtotal) bazında
- * - Sipariş iptali: tüm puanların geri alınması (cancel_reversal)
- * - İade (tam/kısmi): iade edilen ara tutara orantılı geri alma (refund_reversal)
- * - Negatif bakiye: ledger append-only olduğu için bakiye negatife düşebilir
+ * Scope:
+ * - Purchase points: $1 = X points (store.points_per_dollar), subtotal-based
+ * - Order cancel: full reversal (cancel_reversal)
+ * - Refund (full/partial): proportional reversal (refund_reversal)
+ * - Negative balance: allowed via append-only ledger
  *
- * - Exclusions (ürün/koleksiyon hariç tutma) + kampanya çarpanı (Gün 10) Vergi ve kargo HARİÇ ara toplam (subtotal) üzerinden hesaplanır.
- * İade tarafında da aynı taban kullanılır (refund_line_items subtotal'i).
+ * Exclusions + campaign multiplier (Day 10): tax/shipping excluded; subtotal base.
+ * Refunds use the same base (refund_line_items subtotal).
  */
 
 interface ShopifyCustomerLite {
@@ -171,7 +171,7 @@ async function getStorePointsConfig(
   };
 }
 
-/** Sipariş/customer payload'undan müşteriyi upsert eder, customer kaydını döner. */
+/** Upsert customer from order/customer payload; returns customer row. */
 async function ensureCustomer(
   storeId: string,
   customer: ShopifyCustomerLite,
@@ -205,7 +205,7 @@ async function ensureCustomer(
   };
 }
 
-/** store_id + shopify_order_id + movement_type için ledger satırı var mı? (idempotency) */
+/** Ledger row exists for store_id + shopify_order_id + movement_type? (idempotency) */
 async function ledgerEntryExists(params: {
   storeId: string;
   orderId: number;
@@ -231,7 +231,7 @@ async function ledgerEntryExists(params: {
   return data != null;
 }
 
-/** source_id ile ledger kaydı var mı? (taslak sipariş idempotency) */
+/** Ledger row exists by source_id? (draft order idempotency) */
 async function ledgerEntryExistsBySourceId(params: {
   storeId: string;
   sourceId: string;
@@ -287,7 +287,7 @@ async function insertLedger(params: {
   }
 }
 
-/** Müşterinin toplam harcama ve sipariş sayacını günceller (delta uygulanır). */
+/** Update customer total spend and order count (delta applied). */
 async function adjustCustomerTotals(params: {
   customerId: string;
   spendDelta: number;
@@ -323,7 +323,7 @@ async function adjustCustomerTotals(params: {
   }
 }
 
-/** Siparişin puan tabanı: vergi/kargo hariç ara toplam (ham). */
+/** Order points base: raw subtotal excluding tax/shipping. */
 function orderFallbackSubtotal(order: ShopifyOrderPayload): number {
   const subtotal = order.current_subtotal_price ?? order.subtotal_price;
   return toNumber(subtotal);
@@ -389,7 +389,7 @@ async function resolvePurchaseEarn(params: {
   };
 }
 
-/** Daha önce kampanyasız verilmiş earn satırına eksik kampanya puanını ekler. */
+/** Backfill missing campaign points on a prior earn row awarded without campaign. */
 async function applyMissingCampaignAdjustment(params: {
   storeId: string;
   shopDomain: string;
@@ -476,12 +476,12 @@ async function applyMissingCampaignAdjustment(params: {
   return delta;
 }
 
-/** @deprecated resolvePurchaseEarn kullanın */
+/** @deprecated Use resolvePurchaseEarn */
 function orderEligibleAmount(order: ShopifyOrderPayload): number {
   return orderFallbackSubtotal(order);
 }
 
-/** orders/create → satın alma puanı kazandır. */
+/** orders/create — award purchase points. */
 export async function earnOrderPoints(params: {
   store: StoreRecord;
   payload: Record<string, unknown>;
@@ -634,7 +634,7 @@ export async function earnOrderPoints(params: {
   );
 }
 
-/** draft_orders/create veya senkron → taslak sipariş puanı. Idempotent. */
+/** draft_orders/create or sync — draft order points. Idempotent. */
 export async function earnDraftOrderPoints(params: {
   store: StoreRecord;
   payload: Record<string, unknown>;
@@ -771,7 +771,7 @@ export async function earnDraftOrderPoints(params: {
   return points + bonusPoints;
 }
 
-/** draft_orders/delete → taslak puanını geri al. */
+/** draft_orders/delete — reverse draft order points. */
 export async function reverseDraftOrderOnDelete(params: {
   store: StoreRecord;
   payload: Record<string, unknown>;
@@ -837,7 +837,7 @@ export async function reverseDraftOrderOnDelete(params: {
   await syncCustomerTierAfterSpendChange(params.store, customerId);
 }
 
-/** orders/cancelled → siparişin tüm puan etkisini sıfırla. */
+/** orders/cancelled — zero out all point effects for the order. */
 export async function reverseOrderOnCancel(params: {
   store: StoreRecord;
   payload: Record<string, unknown>;
@@ -903,7 +903,7 @@ export async function reverseOrderOnCancel(params: {
   );
 }
 
-/** refunds/create → iade edilen ara tutara orantılı puan geri al. */
+/** refunds/create — proportional point reversal by refunded subtotal. */
 export async function reverseOrderOnRefund(params: {
   store: StoreRecord;
   payload: Record<string, unknown>;

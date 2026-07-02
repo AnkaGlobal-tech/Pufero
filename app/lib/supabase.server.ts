@@ -13,7 +13,7 @@ function getSupabaseEnv() {
   return { url, serviceRoleKey };
 }
 
-/** Server-side Supabase client (service role). RLS bypass — yalnızca Remix loader/action/webhook'larda kullan. */
+/** Server-side Supabase client (service role). RLS bypass — Remix loaders/actions/webhooks only. */
 export function getSupabaseAdmin(): SupabaseClient {
   const env = getSupabaseEnv();
 
@@ -39,7 +39,7 @@ export function isSupabaseConfigured(): boolean {
   return getSupabaseEnv() !== null;
 }
 
-/** Bağlantı doğrulaması — tablo olmadan storage API ile ping atar. */
+/** Connectivity check — pings storage API without requiring tables. */
 export async function verifySupabaseConnection(): Promise<{
   ok: boolean;
   message: string;

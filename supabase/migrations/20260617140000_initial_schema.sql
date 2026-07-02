@@ -330,7 +330,7 @@ ALTER TABLE webhook_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE klaviyo_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE expiry_jobs ENABLE ROW LEVEL SECURITY;
 
--- Future storefront portal: store_id JWT claim ile erişim (şimdilik kapalı)
+-- Future storefront portal: access via store_id JWT claim (disabled for now)
 CREATE POLICY store_isolation_select ON stores
   FOR SELECT TO authenticated
   USING (id = ((auth.jwt() ->> 'store_id')::uuid));

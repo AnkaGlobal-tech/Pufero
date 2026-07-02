@@ -265,6 +265,7 @@ function AppearanceForm(props: {
   }));
 
   const activeCopy = mergedLocaleCopy(state, activeTab);
+  const selectedTabIndex = Math.max(0, uniqueCodes.indexOf(activeTab));
 
   return (
     <Form method="post">
@@ -395,7 +396,13 @@ function AppearanceForm(props: {
               alanlar için yerleşik çeviri kullanılır (EN/TR).
             </Text>
             {tabs.length > 1 ? (
-              <Tabs tabs={tabs} selected={activeTab} onSelect={setActiveTab} />
+              <Tabs
+                tabs={tabs}
+                selected={selectedTabIndex}
+                onSelect={(index) =>
+                  setActiveTab(uniqueCodes[index] ?? uniqueCodes[0] ?? activeTab)
+                }
+              />
             ) : null}
             <LocaleFields
               locale={activeTab}
@@ -445,7 +452,7 @@ export default function AppearancePage() {
       <Layout>
         <Layout.Section>
           <BlockStack gap="400">
-            {actionData?.ok === false ? (
+            {actionData?.ok === false && "error" in actionData ? (
               <Banner tone="critical">{actionData.error}</Banner>
             ) : null}
             <AppearanceForm
