@@ -84,21 +84,98 @@ export async function getMonthlyReport(
     p_month: month,
   });
 
-  if (error) {
-    throw new Error(`monthly report failed: ${error.message}`);
+  if (!error && data) {
+    const row = data as Record<string, unknown>;
+    return {
+      year: toNumber(row.year) || year,
+      month: toNumber(row.month) || month,
+      new_members: toNumber(row.new_members),
+      active_members: toNumber(row.active_members),
+      points_earned: toNumber(row.points_earned),
+      points_redeemed: toNumber(row.points_redeemed),
+      referral_points: toNumber(row.referral_points),
+      review_points: toNumber(row.review_points),
+      orders_with_points: toNumber(row.orders_with_points),
+    };
   }
 
-  const row = (data ?? {}) as Record<string, unknown>;
+  return getMonthlyReportDirect(storeId, year, month);
+}
+
+async function getMonthlyReportDirect(
+  storeId: string,
+  year: number,
+  month: number,
+): Promise<MonthlyReport> {
+  const supabase = getSupabaseAdmin();
+  const start = new Date(Date.UTC(year, month - 1, 1));
+  const end = new Date(Date.UTC(year, month, 1));
+  const startIso = start.toISOString();
+  const endIso = end.toISOString();
+
+  const [membersRes, ledgerRes] = await Promise.all([
+    supabase
+      .from("customers")
+      .select("id, created_at")
+      .eq("store_id", storeId),
+    supabase
+      .from("points_ledger")
+      .select("customer_id, points, source, shopify_order_id, created_at")
+      .eq("store_id", storeId)
+      .gte("created_at", startIso)
+      .lt("created_at", endIso),
+  ]);
+
+  if (membersRes.error) {
+    throw new Error(`monthly report members failed: ${membersRes.error.message}`);
+  }
+  if (ledgerRes.error) {
+    throw new Error(`monthly report ledger failed: ${ledgerRes.error.message}`);
+  }
+
+  const ledger = ledgerRes.data ?? [];
+  const newMembers = (membersRes.data ?? []).filter(
+    (row) => row.created_at >= startIso && row.created_at < endIso,
+  ).length;
+
+  let pointsEarned = 0;
+  let pointsRedeemed = 0;
+  let referralPoints = 0;
+  let reviewPoints = 0;
+  const activeCustomers = new Set<string>();
+  const orders = new Set<number>();
+
+  for (const row of ledger) {
+    const points = toNumber(row.points);
+    if (points > 0) {
+      pointsEarned += points;
+      if (row.source === "referral") referralPoints += points;
+      if (
+        row.source === "review_text" ||
+        row.source === "review_photo" ||
+        row.source === "ugc_video"
+      ) {
+        reviewPoints += points;
+      }
+    } else if (points < 0) {
+      pointsRedeemed += Math.abs(points);
+    }
+    activeCustomers.add(row.customer_id as string);
+    if (row.shopify_order_id != null && points > 0) {
+      orders.add(row.shopify_order_id as number);
+    }
+  }
+
   return {
-    year: toNumber(row.year) || year,
-    month: toNumber(row.month) || month,
-    new_members: toNumber(row.new_members),
-    active_members: toNumber(row.active_members),
-    points_earned: toNumber(row.points_earned),
-    points_redeemed: toNumber(row.points_redeemed),
-    referral_points: toNumber(row.referral_points),
-    review_points: toNumber(row.review_points),
-    orders_with_points: toNumber(row.orders_with_points),
+    year,
+    month,
+    new_members: newMembers,
+    active_members: activeCustomers.size,
+    points_earned: pointsEarned,
+    points_redeemed: pointsRedeemed,
+    referral_points: referralPoints,
+    review_points: reviewPoints,
+    orders_with_points: orders.size,
   };
 }
 
@@ -150,20 +227,89 @@ export async function getProgramHealth(storeId: string): Promise<ProgramHealth> 
     p_store_id: storeId,
   });
 
-  if (error) {
-    throw new Error(`program health failed: ${error.message}`);
+  if (!error && data) {
+    const row = data as Record<string, unknown>;
+    const duplicates = Array.isArray(row.duplicate_source_ids)
+      ? (row.duplicate_source_ids as HealthDuplicateSource[])
+      : [];
+
+    return {
+      negative_balance_count: toNumber(row.negative_balance_count),
+      duplicate_source_ids: duplicates,
+      failed_webhooks_7d: toNumber(row.failed_webhooks_7d),
+      stuck_webhooks: toNumber(row.stuck_webhooks),
+    };
   }
 
-  const row = (data ?? {}) as Record<string, unknown>;
-  const duplicates = Array.isArray(row.duplicate_source_ids)
-    ? (row.duplicate_source_ids as HealthDuplicateSource[])
-    : [];
+  return getProgramHealthDirect(storeId);
+}
+
+async function getProgramHealthDirect(storeId: string): Promise<ProgramHealth> {
+  const supabase = getSupabaseAdmin();
+  const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const stuckBefore = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+
+  const [ledgerRes, failedRes, stuckRes] = await Promise.all([
+    supabase.from("points_ledger").select("customer_id, points").eq("store_id", storeId),
+    supabase
+      .from("webhook_events")
+      .select("id", { count: "exact", head: true })
+      .eq("store_id", storeId)
+      .eq("status", "failed")
+      .gte("created_at", since),
+    supabase
+      .from("webhook_events")
+      .select("id", { count: "exact", head: true })
+      .eq("store_id", storeId)
+      .eq("status", "processing")
+      .lt("created_at", stuckBefore),
+  ]);
+
+  if (ledgerRes.error) {
+    throw new Error(`program health ledger failed: ${ledgerRes.error.message}`);
+  }
+
+  const balanceByCustomer = new Map<string, number>();
+  for (const row of ledgerRes.data ?? []) {
+    const id = row.customer_id as string;
+    balanceByCustomer.set(
+      id,
+      (balanceByCustomer.get(id) ?? 0) + toNumber(row.points),
+    );
+  }
+  const negativeBalanceCount = [...balanceByCustomer.values()].filter(
+    (b) => b < 0,
+  ).length;
+
+  const { data: dupRows, error: dupError } = await supabase
+    .from("points_ledger")
+    .select("source_id, movement_type")
+    .eq("store_id", storeId)
+    .not("source_id", "is", null);
+
+  if (dupError) {
+    throw new Error(`program health duplicates failed: ${dupError.message}`);
+  }
+
+  const dupMap = new Map<string, number>();
+  for (const row of dupRows ?? []) {
+    const key = `${row.source_id}::${row.movement_type}`;
+    dupMap.set(key, (dupMap.get(key) ?? 0) + 1);
+  }
+
+  const duplicateSourceIds: HealthDuplicateSource[] = [];
+  for (const [key, cnt] of dupMap) {
+    if (cnt <= 1) continue;
+    const [source_id, movement_type] = key.split("::");
+    duplicateSourceIds.push({ source_id, movement_type, cnt });
+    if (duplicateSourceIds.length >= 20) break;
+  }
 
   return {
-    negative_balance_count: toNumber(row.negative_balance_count),
-    duplicate_source_ids: duplicates,
-    failed_webhooks_7d: toNumber(row.failed_webhooks_7d),
-    stuck_webhooks: toNumber(row.stuck_webhooks),
+    negative_balance_count: negativeBalanceCount,
+    duplicate_source_ids: duplicateSourceIds,
+    failed_webhooks_7d: failedRes.count ?? 0,
+    stuck_webhooks: stuckRes.count ?? 0,
   };
 }
 
@@ -259,17 +405,20 @@ export async function getJudgeMeSettings(params: {
 }): Promise<JudgeMeSettings> {
   const supabase = getSupabaseAdmin();
 
+  let token: string | null = null;
+  let connectedAt: string | null = null;
+
   const { data, error } = await supabase
     .from("stores")
     .select("judgeme_webhook_token, judgeme_connected_at")
     .eq("id", params.storeId)
     .single();
 
-  if (error || !data) {
-    throw new Error(`store fetch failed: ${error?.message ?? "no row"}`);
+  if (!error && data) {
+    token = data.judgeme_webhook_token as string | null;
+    connectedAt = (data.judgeme_connected_at as string | null) ?? null;
   }
 
-  let token = data.judgeme_webhook_token as string | null;
   if (!token) {
     token = generateWebhookToken();
     const { error: updateError } = await supabase
@@ -278,7 +427,10 @@ export async function getJudgeMeSettings(params: {
       .eq("id", params.storeId);
 
     if (updateError) {
-      throw new Error(`token save failed: ${updateError.message}`);
+      // Column may not exist until migration is applied — use ephemeral token for display.
+      console.warn(
+        `[reports] judgeme token save failed: ${updateError.message}`,
+      );
     }
   }
 
@@ -287,7 +439,7 @@ export async function getJudgeMeSettings(params: {
 
   return {
     webhookToken: token,
-    connectedAt: (data.judgeme_connected_at as string | null) ?? null,
+    connectedAt,
     webhookUrl,
   };
 }
@@ -316,7 +468,9 @@ export async function regenerateJudgeMeToken(storeId: string): Promise<string> {
     .eq("id", storeId);
 
   if (error) {
-    throw new Error(`token regenerate failed: ${error.message}`);
+    throw new Error(
+      `token regenerate failed: ${error.message}. Apply Supabase migration 20260706150000_reports_and_judgeme.sql`,
+    );
   }
 
   return token;

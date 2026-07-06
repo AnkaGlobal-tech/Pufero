@@ -37,6 +37,154 @@ function toNumber(value: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+export interface CustomerListRow {
+  id: string;
+  email: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  tier_name: string | null;
+  tier_slug: string | null;
+  total_spend: number;
+  order_count: number;
+  balance: number;
+  last_activity_at: string | null;
+}
+
+/** List customers with balance + tier (RPC when available, query fallback). */
+export async function listStoreCustomers(params: {
+  storeId: string;
+  tierSlug?: string;
+  negativeOnly?: boolean;
+}): Promise<CustomerListRow[]> {
+  const supabase = getSupabaseAdmin();
+  const hasFilters = Boolean(params.tierSlug || params.negativeOnly);
+
+  const rpcArgs: {
+    p_store_id: string;
+    p_tier_slug?: string;
+    p_negative_balance?: boolean;
+  } = { p_store_id: params.storeId };
+
+  if (params.tierSlug) {
+    rpcArgs.p_tier_slug = params.tierSlug;
+  }
+  if (params.negativeOnly) {
+    rpcArgs.p_negative_balance = true;
+  }
+
+  const rpc = await supabase.rpc("store_customers_list", rpcArgs);
+  if (!rpc.error && rpc.data) {
+    return normalizeCustomerListRows(rpc.data);
+  }
+
+  // Legacy DB function only accepts p_store_id — extra params break PostgREST matching.
+  if (hasFilters || rpc.error) {
+    const legacy = await supabase.rpc("store_customers_list", {
+      p_store_id: params.storeId,
+    });
+    if (!legacy.error && legacy.data) {
+      let rows = normalizeCustomerListRows(legacy.data);
+      if (params.tierSlug) {
+        rows = rows.filter((r) => r.tier_slug === params.tierSlug);
+      }
+      if (params.negativeOnly) {
+        rows = rows.filter((r) => r.balance < 0);
+      }
+      return rows;
+    }
+  }
+
+  return listStoreCustomersDirect(params);
+}
+
+function normalizeCustomerListRows(raw: unknown): CustomerListRow[] {
+  return ((raw as CustomerListRow[]) ?? []).map((row) => ({
+    id: row.id,
+    email: row.email ?? null,
+    first_name: row.first_name ?? null,
+    last_name: row.last_name ?? null,
+    tier_name: row.tier_name ?? null,
+    tier_slug: row.tier_slug ?? null,
+    total_spend: toNumber(row.total_spend),
+    order_count: row.order_count ?? 0,
+    balance: toNumber(row.balance),
+    last_activity_at: row.last_activity_at ?? null,
+  }));
+}
+
+async function listStoreCustomersDirect(params: {
+  storeId: string;
+  tierSlug?: string;
+  negativeOnly?: boolean;
+}): Promise<CustomerListRow[]> {
+  const supabase = getSupabaseAdmin();
+
+  const { data: rows, error } = await supabase
+    .from("customers")
+    .select(
+      "id, email, first_name, last_name, total_spend, order_count, last_activity_at, tiers(name, slug)",
+    )
+    .eq("store_id", params.storeId)
+    .order("last_activity_at", { ascending: false, nullsFirst: false })
+    .limit(500);
+
+  if (error) {
+    throw new Error(`customers list failed: ${error.message}`);
+  }
+
+  const customerIds = (rows ?? []).map((r) => r.id as string);
+  const balanceByCustomer = new Map<string, number>();
+
+  if (customerIds.length > 0) {
+    const { data: ledgerRows, error: ledgerError } = await supabase
+      .from("points_ledger")
+      .select("customer_id, points")
+      .eq("store_id", params.storeId)
+      .in("customer_id", customerIds);
+
+    if (ledgerError) {
+      throw new Error(`customers balance fetch failed: ${ledgerError.message}`);
+    }
+
+    for (const row of ledgerRows ?? []) {
+      const id = row.customer_id as string;
+      balanceByCustomer.set(
+        id,
+        (balanceByCustomer.get(id) ?? 0) + toNumber(row.points),
+      );
+    }
+  }
+
+  let result: CustomerListRow[] = (rows ?? []).map((row) => {
+    const tierRaw = (
+      row as { tiers: { name: string; slug: string } | { name: string; slug: string }[] | null }
+    ).tiers;
+    const tier = Array.isArray(tierRaw) ? tierRaw[0] ?? null : tierRaw;
+
+    return {
+      id: row.id as string,
+      email: row.email ?? null,
+      first_name: row.first_name ?? null,
+      last_name: row.last_name ?? null,
+      tier_name: tier?.name ?? null,
+      tier_slug: tier?.slug ?? null,
+      total_spend: toNumber(row.total_spend),
+      order_count: row.order_count ?? 0,
+      balance: balanceByCustomer.get(row.id as string) ?? 0,
+      last_activity_at: row.last_activity_at ?? null,
+    };
+  });
+
+  if (params.tierSlug) {
+    result = result.filter((r) => r.tier_slug === params.tierSlug);
+  }
+  if (params.negativeOnly) {
+    result = result.filter((r) => r.balance < 0);
+  }
+
+  return result;
+}
+
 /** Fetch customer detail (tier + balance). Store isolation enforced. */
 export async function getCustomerDetail(
   storeId: string,

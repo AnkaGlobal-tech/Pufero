@@ -20,7 +20,7 @@ import { TitleBar } from "@shopify/app-bridge-react";
 
 import { authenticate } from "../shopify.server";
 import { getStoreByDomain } from "../lib/store.server";
-import { getSupabaseAdmin } from "../lib/supabase.server";
+import { listStoreCustomers } from "../lib/customers.server";
 import { listStoreTiers } from "../lib/tier-engine.server";
 
 interface CustomerRow {
@@ -52,22 +52,17 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const tierSlug = url.searchParams.get("tier")?.trim() || "";
   const negativeOnly = url.searchParams.get("negative") === "1";
 
-  const supabase = getSupabaseAdmin();
-  const [listRes, tiers] = await Promise.all([
-    supabase.rpc("store_customers_list", {
-      p_store_id: store.id,
-      p_tier_slug: tierSlug || null,
-      p_negative_balance: negativeOnly ? true : null,
+  const [customers, tiers] = await Promise.all([
+    listStoreCustomers({
+      storeId: store.id,
+      tierSlug: tierSlug || undefined,
+      negativeOnly,
     }),
     listStoreTiers(store.id),
   ]);
 
-  if (listRes.error) {
-    throw new Error(`customers list failed: ${listRes.error.message}`);
-  }
-
   return {
-    customers: (listRes.data as CustomerRow[]) ?? [],
+    customers,
     tiers,
     filters: { tier: tierSlug, negative: negativeOnly },
   };
