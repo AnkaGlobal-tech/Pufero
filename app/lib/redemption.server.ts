@@ -273,3 +273,121 @@ export async function redeemPointsForCustomer(params: {
     redemptionName: tier.name,
   };
 }
+
+/** Cart slider: redeem arbitrary points at store points-to-dollar ratio. */
+export async function redeemFlexiblePointsForCustomer(params: {
+  storeId: string;
+  customerId: string;
+  shopDomain: string;
+  points: number;
+  pointsToDollarRatio: number;
+  minPoints?: number;
+  maxPoints?: number;
+}): Promise<RedeemResult> {
+  const ratio = Math.max(1, Math.floor(toNumber(params.pointsToDollarRatio)));
+  const pointsCost = Math.floor(toNumber(params.points));
+  const configuredMin = Math.max(0, Math.floor(toNumber(params.minPoints ?? 0)));
+  const minCost = configuredMin > 0 ? configuredMin : ratio;
+
+  if (pointsCost < minCost) {
+    throw new Error(`Minimum redemption is ${minCost} points.`);
+  }
+
+  if (pointsCost % ratio !== 0) {
+    throw new Error(`Points must be in increments of ${ratio}.`);
+  }
+
+  const dollarValue = Math.round((pointsCost / ratio) * 100) / 100;
+  if (dollarValue < 0.01) {
+    throw new Error("Redemption amount too small.");
+  }
+
+  const balance = await getCustomerBalance(params.storeId, params.customerId);
+  if (balance < pointsCost) {
+    throw new Error(
+      `Insufficient balance (${balance} points, ${pointsCost} required).`,
+    );
+  }
+
+  const maxCap = Math.floor(toNumber(params.maxPoints ?? 0));
+  if (maxCap > 0 && pointsCost > maxCap) {
+    throw new Error(`Maximum redemption per order is ${maxCap} points.`);
+  }
+
+  const synthetic: RedemptionTier = {
+    id: "flexible-cart",
+    name: `$${dollarValue.toFixed(2)} off`,
+    points_cost: pointsCost,
+    reward_type: "fixed_amount",
+    reward_value: dollarValue,
+    enabled: true,
+  };
+
+  const supabase = getSupabaseAdmin();
+  const { data: customer, error: customerError } = await supabase
+    .from("customers")
+    .select("shopify_customer_id")
+    .eq("id", params.customerId)
+    .eq("store_id", params.storeId)
+    .single();
+
+  if (customerError || !customer?.shopify_customer_id) {
+    throw new Error("Customer not found.");
+  }
+
+  const code = generateDiscountCode();
+  const sourceId = `cart-redeem-${Date.now()}`;
+
+  const { error: ledgerError } = await supabase.from("points_ledger").insert({
+    store_id: params.storeId,
+    customer_id: params.customerId,
+    movement_type: "redeem",
+    points: -pointsCost,
+    source: "manual",
+    source_id: sourceId,
+    description: `Cart slider — coupon: ${code}`,
+    metadata: {
+      redemption_type: "cart_slider",
+      discount_code: code,
+      dollar_value: dollarValue,
+    },
+    created_by: "cart-slider",
+  });
+
+  if (ledgerError) {
+    throw new Error(`Points deduction failed: ${ledgerError.message}`);
+  }
+
+  try {
+    await createShopifyDiscount({
+      shopDomain: params.shopDomain,
+      shopifyCustomerId: customer.shopify_customer_id as number,
+      redemption: synthetic,
+      code,
+    });
+  } catch (error) {
+    await supabase.from("points_ledger").insert({
+      store_id: params.storeId,
+      customer_id: params.customerId,
+      movement_type: "manual",
+      points: pointsCost,
+      source: "manual",
+      source_id: `${sourceId}-rollback`,
+      description: `Cart coupon error — ${pointsCost} points refunded`,
+      metadata: { rollback_for: sourceId },
+      created_by: "cart-slider",
+    });
+    throw error;
+  }
+
+  await supabase
+    .from("customers")
+    .update({ last_activity_at: new Date().toISOString() })
+    .eq("id", params.customerId);
+
+  return {
+    code,
+    pointsDeducted: pointsCost,
+    redemptionName: synthetic.name,
+  };
+}

@@ -83,6 +83,15 @@ export async function updateWidgetSettings(
     show_tier_progress: form.get("show_tier_progress") === "on",
     show_earn_tab: form.get("show_earn_tab") === "on",
     show_redeem_tab: form.get("show_redeem_tab") === "on",
+    cart_slider_enabled: form.get("cart_slider_enabled") === "on",
+    cart_slider_min_points: Math.max(
+      0,
+      Math.floor(Number(form.get("cart_slider_min_points") ?? 0)),
+    ),
+    cart_slider_max_points: Math.max(
+      0,
+      Math.floor(Number(form.get("cart_slider_max_points") ?? 0)),
+    ),
     default_locale: normalizeLocaleCode(
       String(form.get("default_locale") ?? DEFAULT_WIDGET_SETTINGS.default_locale),
     ),

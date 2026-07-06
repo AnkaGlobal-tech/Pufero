@@ -413,6 +413,64 @@ function AppearanceForm(props: {
         <Card>
           <BlockStack gap="400">
             <Text as="h2" variant="headingMd">
+              Cart slider
+            </Text>
+            <Text as="p" variant="bodySm" tone="subdued">
+              Points slider in cart drawer / cart page. Customer slides to choose
+              points, a coupon is created and applied automatically.
+            </Text>
+            <Banner tone="info">
+              <p>
+                After enabling: <strong>Online Store → Customize → App embeds →
+                Anka Cart Points Slider</strong> must be turned on.
+              </p>
+            </Banner>
+            <Checkbox
+              label="Enable cart points slider"
+              checked={state.cart_slider_enabled}
+              onChange={(v) => patch({ cart_slider_enabled: v })}
+            />
+            <input
+              type="hidden"
+              name="cart_slider_enabled"
+              value={state.cart_slider_enabled ? "on" : "off"}
+            />
+            <InlineStack gap="400" wrap>
+              <Box minWidth="200px">
+                <TextField
+                  label="Minimum points"
+                  name="cart_slider_min_points"
+                  type="number"
+                  value={String(state.cart_slider_min_points)}
+                  onChange={(v) =>
+                    patch({ cart_slider_min_points: Math.max(0, Number(v) || 0) })
+                  }
+                  autoComplete="off"
+                  helpText="0 = use points-to-dollar ratio from Program"
+                  min={0}
+                />
+              </Box>
+              <Box minWidth="200px">
+                <TextField
+                  label="Maximum points per redemption"
+                  name="cart_slider_max_points"
+                  type="number"
+                  value={String(state.cart_slider_max_points)}
+                  onChange={(v) =>
+                    patch({ cart_slider_max_points: Math.max(0, Number(v) || 0) })
+                  }
+                  autoComplete="off"
+                  helpText="0 = no cap (full balance)"
+                  min={0}
+                />
+              </Box>
+            </InlineStack>
+          </BlockStack>
+        </Card>
+
+        <Card>
+          <BlockStack gap="400">
+            <Text as="h2" variant="headingMd">
               Copy (multi-language)
             </Text>
             <Text as="p" variant="bodySm" tone="subdued">

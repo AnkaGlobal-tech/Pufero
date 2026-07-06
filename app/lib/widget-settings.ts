@@ -22,6 +22,12 @@ export interface WidgetSettings {
   show_earn_tab: boolean;
   /** Redeem tab + coupon creation */
   show_redeem_tab: boolean;
+  /** Cart drawer / cart page points slider */
+  cart_slider_enabled: boolean;
+  /** Minimum points per cart redemption (0 = use points-to-dollar ratio) */
+  cart_slider_min_points: number;
+  /** Cap per redemption (0 = no cap, use full balance) */
+  cart_slider_max_points: number;
   default_locale: string;
   locales: Record<string, Partial<WidgetLocaleCopy>>;
 }
@@ -37,6 +43,9 @@ export const DEFAULT_WIDGET_SETTINGS: WidgetSettings = {
   show_tier_progress: true,
   show_earn_tab: true,
   show_redeem_tab: true,
+  cart_slider_enabled: false,
+  cart_slider_min_points: 0,
+  cart_slider_max_points: 0,
   default_locale: "en",
   locales: {},
 };
@@ -94,6 +103,15 @@ export function parseWidgetSettings(raw: unknown): WidgetSettings {
     show_tier_progress: obj.show_tier_progress !== false,
     show_earn_tab: obj.show_earn_tab !== false,
     show_redeem_tab: obj.show_redeem_tab !== false,
+    cart_slider_enabled: obj.cart_slider_enabled === true,
+    cart_slider_min_points: Math.max(
+      0,
+      Math.floor(toNumberSetting(obj.cart_slider_min_points)),
+    ),
+    cart_slider_max_points: Math.max(
+      0,
+      Math.floor(toNumberSetting(obj.cart_slider_max_points)),
+    ),
     default_locale: normalizeLocaleCode(
       String(obj.default_locale ?? DEFAULT_WIDGET_SETTINGS.default_locale),
     ),
@@ -103,6 +121,12 @@ export function parseWidgetSettings(raw: unknown): WidgetSettings {
 
 export function formatNudgeText(template: string, balance: number): string {
   return template.replace(/\{\{balance\}\}/g, String(Math.max(0, balance)));
+}
+
+function toNumberSetting(value: unknown): number {
+  if (value == null || value === "") return 0;
+  const n = typeof value === "number" ? value : parseFloat(String(value));
+  return Number.isFinite(n) ? n : 0;
 }
 
 export const WIDGET_FEATURE_FIELDS: Array<{

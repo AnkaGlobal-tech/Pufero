@@ -1,0 +1,15 @@
+{{ 'anka-cart-slider.css' | asset_url | stylesheet_tag }}
+<script src="{{ 'anka-cart-slider.js' | asset_url }}" defer></script>
+
+{% schema %}
+{
+  "name": "Anka Cart Points Slider",
+  "target": "body",
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "Shows a points slider in the cart drawer and cart page. Enable in Anka Loyalty admin → Appearance → Cart slider. Customer must be logged in."
+    }
+  ]
+}
+{% endschema %}
