@@ -3,6 +3,7 @@ import type { StoreRecord } from "./store.server";
 import type { LedgerMovementType, LedgerSource } from "../types/loyalty";
 import { applyPurchaseBonuses } from "./bonus-rules.server";
 import { processReferralOnFirstOrder } from "./referral-engine.server";
+import { notifyPointsEarned } from "./klaviyo-events.server";
 import {
   getPurchaseMultiplierForCustomer,
   recalculateCustomerTier,
@@ -637,6 +638,19 @@ export async function earnOrderPoints(params: {
   });
 
   await syncCustomerTierAfterSpendChange(params.store, customer.id);
+
+  const totalEarned = earn.points + bonusPoints + referralPoints;
+  if (totalEarned > 0) {
+    notifyPointsEarned({
+      storeId,
+      customerId: customer.id,
+      points: totalEarned,
+      source: "purchase",
+      description: `Order #${orderId}`,
+    }).catch((err) =>
+      console.error(`[klaviyo] order=${orderId} notify failed:`, err),
+    );
+  }
 
   console.log(
     `[points-engine] order=${orderId} +${earn.points} puan (tier x${earn.tierMultiplier}, kampanya x${earn.campaignMultiplier}) +${bonusPoints} bonus +${referralPoints} referral (taban $${earn.eligibleAmount})`,

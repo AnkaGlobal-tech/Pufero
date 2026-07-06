@@ -1,5 +1,6 @@
 import { getSupabaseAdmin } from "./supabase.server";
 import { markJudgemeConnected } from "./judgeme-settings.server";
+import { trackLoyaltyActivity, KLAVIYO_METRICS } from "./klaviyo-sync.server";
 
 type ReviewRuleType = "review_text" | "review_photo" | "ugc_video";
 
@@ -201,6 +202,19 @@ export async function processJudgeMeReviewWebhook(params: {
     .eq("id", customer.id);
 
   await markJudgemeConnected(params.storeId);
+
+  trackLoyaltyActivity({
+    storeId: params.storeId,
+    customerId: customer.id,
+    metricName: KLAVIYO_METRICS.reviewEarned,
+    eventProperties: {
+      points: rule.points,
+      review_type: ruleType,
+      judgeme_review_id: review.id,
+    },
+  }).catch((err) =>
+    console.error(`[klaviyo] review=${review.id} notify failed:`, err),
+  );
 
   console.log(
     `[review-engine] judgeme review=${review.id} customer=${customer.id} +${rule.points} ${ruleType}`,

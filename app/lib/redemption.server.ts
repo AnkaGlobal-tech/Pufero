@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 
 import { unauthenticated } from "../shopify.server";
 import { getSupabaseAdmin } from "./supabase.server";
+import { notifyPointsRedeemed } from "./klaviyo-events.server";
 import type { RedemptionRewardType } from "../types/loyalty";
 
 export interface RedemptionTier {
@@ -313,6 +314,15 @@ export async function redeemPointsForCustomer(params: {
     `[redemption] customer=${params.customerId} -${pointsCost} → ${code}`,
   );
 
+  notifyPointsRedeemed({
+    storeId: params.storeId,
+    customerId: params.customerId,
+    points: -pointsCost,
+    description: `${tier.name} — coupon: ${code}`,
+  }).catch((err) =>
+    console.error(`[klaviyo] redeem notify failed:`, err),
+  );
+
   return {
     code,
     pointsDeducted: pointsCost,
@@ -430,6 +440,15 @@ export async function redeemFlexiblePointsForCustomer(params: {
     .from("customers")
     .update({ last_activity_at: new Date().toISOString() })
     .eq("id", params.customerId);
+
+  notifyPointsRedeemed({
+    storeId: params.storeId,
+    customerId: params.customerId,
+    points: -pointsCost,
+    description: `Cart slider — coupon: ${code}`,
+  }).catch((err) =>
+    console.error(`[klaviyo] cart redeem notify failed:`, err),
+  );
 
   return {
     code,
