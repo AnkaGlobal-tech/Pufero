@@ -34,6 +34,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const payload = await getPortalPayload({
     storeId: store.id,
     shopifyCustomerId,
+    shopDomain: session.shop,
     locale: url.searchParams.get("locale"),
     currency: url.searchParams.get("currency"),
   });

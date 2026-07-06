@@ -97,6 +97,65 @@
         .replace("{{tier}}", member.nextTierName);
     }
 
+    referralSection(referral) {
+      if (!referral.enabled) {
+        return `
+          <section class="anka-portal-section anka-portal-referral">
+            <h3>Refer a friend</h3>
+            <p class="anka-portal-muted">${referral.message}</p>
+          </section>`;
+      }
+
+      const stats = `
+        <div class="anka-portal-ref-stats">
+          <div><span>Successful</span><strong>${this.fmt(referral.successfulReferrals)}</strong></div>
+          <div><span>Pending</span><strong>${this.fmt(referral.pendingReferrals)}</strong></div>
+          <div><span>Limit</span><strong>${this.fmt(referral.maxReferrals)}</strong></div>
+        </div>`;
+
+      const welcome =
+        referral.welcomeCode
+          ? `<p class="anka-portal-ref-welcome">Your welcome code: <code>${referral.welcomeCode}</code></p>`
+          : "";
+
+      return `
+        <section class="anka-portal-section anka-portal-referral">
+          <h3>Refer a friend</h3>
+          <p class="anka-portal-muted">${referral.message}</p>
+          ${welcome}
+          <label class="anka-portal-ref-label" for="anka-ref-link">Your referral link</label>
+          <div class="anka-portal-ref-row">
+            <input id="anka-ref-link" class="anka-portal-ref-input" type="text" readonly value="${referral.link || ""}" />
+            <button type="button" class="anka-portal-ref-copy" data-copy="${referral.link || ""}">Copy</button>
+          </div>
+          <p class="anka-portal-muted anka-portal-ref-hint">
+            Friends get ${referral.refereeDiscountPercent}% off · You earn ${this.fmt(referral.referrerRewardPoints)} pts after their first order.
+          </p>
+          ${stats}
+        </section>`;
+    }
+
+    bindReferralCopy() {
+      const btn = this.root.querySelector(".anka-portal-ref-copy");
+      if (!btn) return;
+      btn.addEventListener("click", async () => {
+        const value = btn.getAttribute("data-copy") || "";
+        try {
+          await navigator.clipboard.writeText(value);
+          btn.textContent = "Copied!";
+          setTimeout(() => {
+            btn.textContent = "Copy";
+          }, 2000);
+        } catch {
+          const input = this.root.querySelector(".anka-portal-ref-input");
+          if (input) {
+            input.select();
+            document.execCommand("copy");
+          }
+        }
+      });
+    }
+
     render() {
       const { widget, member, ledger, coupons, referral } = this.data;
       const m = widget.member;
@@ -165,10 +224,7 @@
             </ul>
           </section>
 
-          <section class="anka-portal-section anka-portal-referral">
-            <h3>Refer a friend</h3>
-            <p class="anka-portal-muted">${referral.message}</p>
-          </section>
+          ${this.referralSection(referral)}
 
           <footer class="anka-portal-stats">
             <div><span>Member since</span><strong>${this.fmtDate(member.memberSince)}</strong></div>
@@ -176,6 +232,7 @@
             <div><span>Total spend</span><strong>${this.fmtMoney(member.totalSpend)}</strong></div>
           </footer>
         </div>`;
+      this.bindReferralCopy();
     }
   }
 

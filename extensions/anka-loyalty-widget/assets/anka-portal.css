@@ -241,6 +241,68 @@
   text-decoration: none;
 }
 
+.anka-portal-ref-row {
+  display: flex;
+  gap: 8px;
+  margin: 8px 0 12px;
+}
+
+.anka-portal-ref-input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--anka-text) 20%, transparent);
+  background: color-mix(in srgb, var(--anka-bg) 70%, transparent);
+  color: var(--anka-text);
+  font-size: 13px;
+}
+
+.anka-portal-ref-copy {
+  padding: 10px 14px;
+  border: none;
+  border-radius: 8px;
+  background: var(--anka-primary);
+  color: #111;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.anka-portal-ref-label {
+  display: block;
+  font-size: 12px;
+  color: var(--anka-muted);
+  margin-top: 8px;
+}
+
+.anka-portal-ref-hint {
+  margin: 0 0 12px;
+}
+
+.anka-portal-ref-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.anka-portal-ref-stats div {
+  background: color-mix(in srgb, var(--anka-bg) 55%, transparent);
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.anka-portal-ref-stats span {
+  display: block;
+  font-size: 11px;
+  color: var(--anka-muted);
+}
+
+.anka-portal-ref-welcome code {
+  background: color-mix(in srgb, var(--anka-primary) 25%, transparent);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
 @keyframes anka-portal-in {
   from {
     opacity: 0;

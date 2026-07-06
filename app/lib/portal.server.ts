@@ -1,6 +1,7 @@
 import { getCustomerDetail, getCustomerLedger } from "./customers.server";
 import type { LedgerEntry } from "./customers.server";
 import { getWidgetPayload, getCustomerIdByShopifyId } from "./widget.server";
+import { getReferralStats, type ReferralStats } from "./referral-engine.server";
 
 export interface PortalCoupon {
   code: string;
@@ -29,10 +30,7 @@ export interface PortalPayload {
   };
   ledger: PortalLedgerItem[];
   coupons: PortalCoupon[];
-  referral: {
-    enabled: false;
-    message: string;
-  };
+  referral: ReferralStats;
 }
 
 function extractCoupon(entry: LedgerEntry): PortalCoupon | null {
@@ -62,6 +60,7 @@ function extractCoupon(entry: LedgerEntry): PortalCoupon | null {
 export async function getPortalPayload(params: {
   storeId: string;
   shopifyCustomerId: number;
+  shopDomain: string;
   locale?: string | null;
   currency?: string | null;
 }): Promise<PortalPayload | { ok: false; error: string }> {
@@ -87,9 +86,14 @@ export async function getPortalPayload(params: {
     return { ok: false, error: "Customer not found." };
   }
 
-  const [detail, ledgerRows] = await Promise.all([
+  const [detail, ledgerRows, referral] = await Promise.all([
     getCustomerDetail(params.storeId, customerId),
     getCustomerLedger(params.storeId, customerId, 50),
+    getReferralStats({
+      storeId: params.storeId,
+      customerId,
+      shopDomain: params.shopDomain,
+    }),
   ]);
 
   if (!detail) {
@@ -122,9 +126,6 @@ export async function getPortalPayload(params: {
     },
     ledger,
     coupons,
-    referral: {
-      enabled: false,
-      message: "Referral rewards are coming soon.",
-    },
+    referral,
   };
 }

@@ -5,6 +5,7 @@
   data-currency="{{ cart.currency.iso_code | default: shop.currency }}"
 ></div>
 {{ 'anka-widget.css' | asset_url | stylesheet_tag }}
+<script src="{{ 'anka-referral-capture.js' | asset_url }}" defer></script>
 <script src="{{ 'anka-widget.js' | asset_url }}" defer></script>
 
 {% schema %}

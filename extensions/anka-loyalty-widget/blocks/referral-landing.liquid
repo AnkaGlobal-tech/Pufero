@@ -1,0 +1,17 @@
+<div id="anka-referral-root" class="anka-referral-root"></div>
+{{ 'anka-referral-landing.css' | asset_url | stylesheet_tag }}
+<script src="{{ 'anka-referral-landing.js' | asset_url }}" defer></script>
+<script src="{{ 'anka-referral-capture.js' | asset_url }}" defer></script>
+
+{% schema %}
+{
+  "name": "Anka Referral Landing",
+  "target": "section",
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "Referral invite page. Add to Online Store → Pages → Refer (e.g. /pages/refer). Links use ?ref=CODE — share from the customer rewards portal."
+    }
+  ]
+}
+{% endschema %}

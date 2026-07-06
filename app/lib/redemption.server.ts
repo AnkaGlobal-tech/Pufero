@@ -78,6 +78,52 @@ const DISCOUNT_CODE_FREE_SHIPPING_CREATE = `#graphql
   }
 `;
 
+/** Single-use percentage discount for a specific Shopify customer (referrals, promos). */
+export async function createCustomerPercentageDiscount(params: {
+  shopDomain: string;
+  shopifyCustomerId: number;
+  code: string;
+  percentage: number;
+  title: string;
+}): Promise<void> {
+  if (params.percentage <= 0 || params.percentage > 100) {
+    throw new Error("Invalid discount percentage.");
+  }
+
+  const { admin } = await unauthenticated.admin(params.shopDomain);
+  const customerGid = `gid://shopify/Customer/${params.shopifyCustomerId}`;
+  const startsAt = new Date().toISOString();
+  const endsAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString();
+
+  const response = await admin.graphql(DISCOUNT_CODE_BASIC_CREATE, {
+    variables: {
+      basicCodeDiscount: {
+        title: params.title,
+        code: params.code,
+        startsAt,
+        endsAt,
+        usageLimit: 1,
+        appliesOncePerCustomer: true,
+        customerSelection: {
+          customers: { add: [customerGid] },
+        },
+        customerGets: {
+          value: { percentage: params.percentage / 100 },
+          items: { all: true },
+        },
+      },
+    },
+  });
+
+  const json = await response.json();
+  const errors = json.data?.discountCodeBasicCreate?.userErrors ?? [];
+  if (errors.length > 0 || json.errors) {
+    throw new Error(
+      `Coupon could not be created: ${JSON.stringify(errors.length ? errors : json.errors)}`,
+    );
+  }
+}
+
 async function createShopifyDiscount(params: {
   shopDomain: string;
   shopifyCustomerId: number;

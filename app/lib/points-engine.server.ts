@@ -2,6 +2,7 @@ import { getSupabaseAdmin } from "./supabase.server";
 import type { StoreRecord } from "./store.server";
 import type { LedgerMovementType, LedgerSource } from "../types/loyalty";
 import { applyPurchaseBonuses } from "./bonus-rules.server";
+import { processReferralOnFirstOrder } from "./referral-engine.server";
 import {
   getPurchaseMultiplierForCustomer,
   recalculateCustomerTier,
@@ -621,6 +622,14 @@ export async function earnOrderPoints(params: {
     descriptionPrefix: `Order #${orderId}`,
   });
 
+  const referralPoints = await processReferralOnFirstOrder({
+    storeId,
+    shopDomain: params.store.shop_domain,
+    refereeCustomerId: customer.id,
+    shopifyOrderId: orderId,
+    orderCountBefore: customer.order_count,
+  });
+
   await adjustCustomerTotals({
     customerId: customer.id,
     spendDelta: earn.eligibleAmount,
@@ -630,7 +639,7 @@ export async function earnOrderPoints(params: {
   await syncCustomerTierAfterSpendChange(params.store, customer.id);
 
   console.log(
-    `[points-engine] order=${orderId} +${earn.points} puan (tier x${earn.tierMultiplier}, kampanya x${earn.campaignMultiplier}) +${bonusPoints} bonus (taban $${earn.eligibleAmount})`,
+    `[points-engine] order=${orderId} +${earn.points} puan (tier x${earn.tierMultiplier}, kampanya x${earn.campaignMultiplier}) +${bonusPoints} bonus +${referralPoints} referral (taban $${earn.eligibleAmount})`,
   );
 }
 
