@@ -1,0 +1,21 @@
+<div
+  id="anka-portal-root"
+  class="anka-portal-root"
+  data-locale="{{ localization.language.iso_code | default: request.locale.iso_code | default: 'en' }}"
+  data-currency="{{ cart.currency.iso_code | default: shop.currency }}"
+></div>
+{{ 'anka-portal.css' | asset_url | stylesheet_tag }}
+<script src="{{ 'anka-portal.js' | asset_url }}" defer></script>
+
+{% schema %}
+{
+  "name": "Anka Rewards Account",
+  "target": "section",
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "Customer account rewards portal. Add this block to a page linked from customer accounts (e.g. /pages/my-rewards). Customer must be logged in."
+    }
+  ]
+}
+{% endschema %}

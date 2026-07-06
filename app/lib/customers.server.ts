@@ -28,6 +28,7 @@ export interface LedgerEntry {
   shopify_order_id: number | null;
   created_by: string | null;
   created_at: string | null;
+  metadata?: Record<string, unknown>;
 }
 
 function toNumber(value: unknown): number {
@@ -113,7 +114,7 @@ export async function getCustomerLedger(
   const { data, error } = await supabase
     .from("points_ledger")
     .select(
-      "id, movement_type, source, points, description, shopify_order_id, created_by, created_at",
+      "id, movement_type, source, points, description, shopify_order_id, created_by, created_at, metadata",
     )
     .eq("store_id", storeId)
     .eq("customer_id", customerId)

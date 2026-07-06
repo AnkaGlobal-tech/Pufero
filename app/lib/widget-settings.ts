@@ -16,6 +16,12 @@ export interface WidgetSettings {
   position: WidgetPosition;
   panel_direction: WidgetPanelDirection;
   nudge_enabled: boolean;
+  /** Tier bar + progress in panel header */
+  show_tier_progress: boolean;
+  /** Earn tab (how to earn / point value) */
+  show_earn_tab: boolean;
+  /** Redeem tab + coupon creation */
+  show_redeem_tab: boolean;
   default_locale: string;
   locales: Record<string, Partial<WidgetLocaleCopy>>;
 }
@@ -28,6 +34,9 @@ export const DEFAULT_WIDGET_SETTINGS: WidgetSettings = {
   position: "bottom-right",
   panel_direction: "up",
   nudge_enabled: true,
+  show_tier_progress: true,
+  show_earn_tab: true,
+  show_redeem_tab: true,
   default_locale: "en",
   locales: {},
 };
@@ -82,6 +91,9 @@ export function parseWidgetSettings(raw: unknown): WidgetSettings {
       ? (panelDirection as WidgetPanelDirection)
       : "up",
     nudge_enabled: obj.nudge_enabled !== false,
+    show_tier_progress: obj.show_tier_progress !== false,
+    show_earn_tab: obj.show_earn_tab !== false,
+    show_redeem_tab: obj.show_redeem_tab !== false,
     default_locale: normalizeLocaleCode(
       String(obj.default_locale ?? DEFAULT_WIDGET_SETTINGS.default_locale),
     ),
@@ -92,6 +104,36 @@ export function parseWidgetSettings(raw: unknown): WidgetSettings {
 export function formatNudgeText(template: string, balance: number): string {
   return template.replace(/\{\{balance\}\}/g, String(Math.max(0, balance)));
 }
+
+export const WIDGET_FEATURE_FIELDS: Array<{
+  key: keyof Pick<
+    WidgetSettings,
+    "show_tier_progress" | "show_earn_tab" | "show_redeem_tab" | "nudge_enabled"
+  >;
+  label: string;
+  help?: string;
+}> = [
+  {
+    key: "nudge_enabled",
+    label: "Show nudge bubble",
+    help: "Teaser above the launcher when the customer has points",
+  },
+  {
+    key: "show_tier_progress",
+    label: "Show tier progress",
+    help: "Tier name, progress bar, and next-tier hint in the panel header",
+  },
+  {
+    key: "show_earn_tab",
+    label: "Show Earn tab",
+    help: "How customers earn points and point value",
+  },
+  {
+    key: "show_redeem_tab",
+    label: "Show Redeem / coupons",
+    help: "Coupon tiers and create-coupon buttons. When off, only balance (and optional tier) is shown",
+  },
+];
 
 export const LOCALE_COPY_FIELDS: Array<{
   key: keyof WidgetLocaleCopy;

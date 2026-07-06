@@ -1,0 +1,20 @@
+<div
+  id="anka-landing-root"
+  class="anka-landing-root"
+  data-locale="{{ localization.language.iso_code | default: request.locale.iso_code | default: 'en' }}"
+></div>
+{{ 'anka-landing.css' | asset_url | stylesheet_tag }}
+<script src="{{ 'anka-landing.js' | asset_url }}" defer></script>
+
+{% schema %}
+{
+  "name": "Anka Rewards Landing",
+  "target": "section",
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "Public rewards program page with tier table and FAQ. Add to Online Store → Pages → Rewards (or /pages/rewards)."
+    }
+  ]
+}
+{% endschema %}

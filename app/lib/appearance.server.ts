@@ -80,6 +80,9 @@ export async function updateWidgetSettings(
       ? (panelDirection as WidgetSettings["panel_direction"])
       : "up",
     nudge_enabled: form.get("nudge_enabled") === "on",
+    show_tier_progress: form.get("show_tier_progress") === "on",
+    show_earn_tab: form.get("show_earn_tab") === "on",
+    show_redeem_tab: form.get("show_redeem_tab") === "on",
     default_locale: normalizeLocaleCode(
       String(form.get("default_locale") ?? DEFAULT_WIDGET_SETTINGS.default_locale),
     ),

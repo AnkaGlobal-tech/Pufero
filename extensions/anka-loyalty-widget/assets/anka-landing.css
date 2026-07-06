@@ -1,0 +1,142 @@
+.anka-landing-root {
+  --anka-primary: #c9a84c;
+  --anka-bg: #0f1b2d;
+  --anka-text: #f7f5f0;
+  --anka-surface: #121c2e;
+  --anka-muted: rgba(247, 245, 240, 0.58);
+  --anka-border: rgba(255, 255, 255, 0.1);
+  font-family: Inter, system-ui, sans-serif;
+  color: var(--anka-text);
+  line-height: 1.55;
+}
+
+.anka-landing-root * {
+  box-sizing: border-box;
+}
+
+.anka-landing-loading,
+.anka-landing-error {
+  padding: 24px;
+  text-align: center;
+  color: var(--anka-muted);
+}
+
+.anka-landing {
+  max-width: 880px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.anka-landing-hero {
+  padding: 32px 28px;
+  border-radius: 18px;
+  background: var(--anka-surface);
+  border: 1px solid var(--anka-border);
+  position: relative;
+  overflow: hidden;
+}
+
+.anka-landing-hero::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--anka-primary);
+}
+
+.anka-landing-hero h2 {
+  margin: 0 0 10px;
+  font-size: 28px;
+}
+
+.anka-landing-hero p {
+  margin: 0;
+  color: var(--anka-muted);
+  font-size: 16px;
+}
+
+.anka-landing-paused {
+  color: #fca5a5 !important;
+}
+
+.anka-landing-section {
+  padding: 24px 28px;
+  border-radius: 16px;
+  background: var(--anka-bg);
+  border: 1px solid var(--anka-border);
+  animation: anka-landing-in 0.4s ease backwards;
+}
+
+.anka-landing-section h3 {
+  margin: 0 0 16px;
+  font-size: 18px;
+}
+
+.anka-landing-table-wrap {
+  overflow-x: auto;
+}
+
+.anka-landing-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.anka-landing-table th,
+.anka-landing-table td {
+  padding: 12px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--anka-border);
+}
+
+.anka-landing-table th {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--anka-muted);
+}
+
+.anka-landing-faq {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.anka-landing-faq-item {
+  border-radius: 12px;
+  background: var(--anka-surface);
+  border: 1px solid var(--anka-border);
+  padding: 0 14px;
+}
+
+.anka-landing-faq-item summary {
+  cursor: pointer;
+  padding: 14px 0;
+  font-weight: 600;
+  list-style: none;
+}
+
+.anka-landing-faq-item summary::-webkit-details-marker {
+  display: none;
+}
+
+.anka-landing-faq-item p {
+  margin: 0 0 14px;
+  color: var(--anka-muted);
+  font-size: 14px;
+}
+
+@keyframes anka-landing-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

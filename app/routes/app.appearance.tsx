@@ -28,6 +28,7 @@ import type { WidgetSettings } from "../lib/widget-settings";
 import {
   formatNudgeText,
   LOCALE_COPY_FIELDS,
+  WIDGET_FEATURE_FIELDS,
   type WidgetPanelDirection,
 } from "../lib/widget-settings";
 import {
@@ -133,6 +134,8 @@ function WidgetPreview({ settings, locale }: { settings: WidgetSettings; locale:
   const copy = mergedLocaleCopy(settings, locale);
   const sampleBalance = 1250;
   const nudge = formatNudgeText(copy.nudge_text, sampleBalance);
+  const compact =
+    !settings.show_earn_tab && !settings.show_redeem_tab;
 
   return (
     <Box
@@ -145,6 +148,7 @@ function WidgetPreview({ settings, locale }: { settings: WidgetSettings; locale:
       <BlockStack gap="300">
         <Text as="p" variant="bodySm" tone="subdued">
           Preview — {localeDisplayName(locale)} ({locale})
+          {compact ? " · balance-only mode" : ""}
         </Text>
         <div
           style={{
@@ -371,17 +375,38 @@ function AppearanceForm(props: {
                 onChange={(v) => patch({ text_color: v })}
               />
             </InlineStack>
-            <Checkbox
-              label="Show nudge bubble"
-              checked={state.nudge_enabled}
-              onChange={(v) => patch({ nudge_enabled: v })}
-            />
-            <input
-              type="hidden"
-              name="nudge_enabled"
-              value={state.nudge_enabled ? "on" : "off"}
-            />
             <WidgetPreview settings={state} locale={activeTab} />
+          </BlockStack>
+        </Card>
+
+        <Card>
+          <BlockStack gap="400">
+            <Text as="h2" variant="headingMd">
+              Panel content
+            </Text>
+            <Text as="p" variant="bodySm" tone="subdued">
+              Choose what customers see inside the widget. Turn off Redeem to show
+              only points balance (and optional tier progress).
+            </Text>
+            {WIDGET_FEATURE_FIELDS.map((field) => (
+              <BlockStack key={field.key} gap="100">
+                <Checkbox
+                  label={field.label}
+                  checked={state[field.key]}
+                  onChange={(v) => patch({ [field.key]: v })}
+                />
+                {field.help ? (
+                  <Text as="p" variant="bodySm" tone="subdued">
+                    {field.help}
+                  </Text>
+                ) : null}
+                <input
+                  type="hidden"
+                  name={field.key}
+                  value={state[field.key] ? "on" : "off"}
+                />
+              </BlockStack>
+            ))}
           </BlockStack>
         </Card>
 
