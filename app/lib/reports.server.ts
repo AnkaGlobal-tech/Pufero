@@ -1,6 +1,10 @@
-import { randomBytes } from "node:crypto";
-
 import { getSupabaseAdmin } from "./supabase.server";
+import {
+  buildJudgemeWebhookUrl,
+  ensureJudgemeWebhookToken,
+} from "./judgeme-settings.server";
+
+export { regenerateJudgemeWebhookToken as regenerateJudgeMeToken } from "./judgeme-settings.server";
 
 export interface MonthlyReport {
   year: number;
@@ -41,6 +45,7 @@ export interface JudgeMeSettings {
   webhookToken: string;
   connectedAt: string | null;
   webhookUrl: string;
+  testCurl: string;
 }
 
 function toNumber(value: unknown): number {
@@ -394,106 +399,43 @@ export async function exportLedgerCsv(params: {
   return [header, ...lines].join("\n");
 }
 
-function generateWebhookToken(): string {
-  return randomBytes(16).toString("hex");
-}
-
 export async function getJudgeMeSettings(params: {
   storeId: string;
   appUrl: string;
   shopDomain: string;
 }): Promise<JudgeMeSettings> {
-  const supabase = getSupabaseAdmin();
+  const stored = await ensureJudgemeWebhookToken(params.storeId);
+  const webhookUrl = buildJudgemeWebhookUrl({
+    appUrl: params.appUrl,
+    shopDomain: params.shopDomain,
+    token: stored.webhookToken,
+  });
 
-  let token: string | null = null;
-  let connectedAt: string | null = null;
+  const samplePayload = JSON.stringify(
+    {
+      event: "review/published",
+      shop_domain: params.shopDomain,
+      review: {
+        id: 999001,
+        hidden: false,
+        rating: 5,
+        body: "Test review from Anka Loyalty",
+        pictures: [],
+        reviewer: { email: "customer@example.com", name: "Test Customer" },
+      },
+    },
+    null,
+    2,
+  );
 
-  const { data, error } = await supabase
-    .from("stores")
-    .select("judgeme_webhook_token, judgeme_connected_at")
-    .eq("id", params.storeId)
-    .single();
-
-  if (!error && data) {
-    token = data.judgeme_webhook_token as string | null;
-    connectedAt = (data.judgeme_connected_at as string | null) ?? null;
-  }
-
-  if (!token) {
-    token = generateWebhookToken();
-    const { error: updateError } = await supabase
-      .from("stores")
-      .update({ judgeme_webhook_token: token })
-      .eq("id", params.storeId);
-
-    if (updateError) {
-      // Column may not exist until migration is applied — use ephemeral token for display.
-      console.warn(
-        `[reports] judgeme token save failed: ${updateError.message}`,
-      );
-    }
-  }
-
-  const base = params.appUrl.replace(/\/$/, "");
-  const webhookUrl = `${base}/webhooks/judgeme?shop=${encodeURIComponent(params.shopDomain)}&token=${token}`;
+  const testCurl = `curl -X POST '${webhookUrl}' \\
+  -H 'Content-Type: application/json' \\
+  -d '${samplePayload.replace(/'/g, "'\\''")}'`;
 
   return {
-    webhookToken: token,
-    connectedAt,
+    webhookToken: stored.webhookToken,
+    connectedAt: stored.connectedAt,
     webhookUrl,
+    testCurl,
   };
-}
-
-export async function markJudgeMeConnected(storeId: string): Promise<void> {
-  const supabase = getSupabaseAdmin();
-  const { error } = await supabase
-    .from("stores")
-    .update({ judgeme_connected_at: new Date().toISOString() })
-    .eq("id", storeId);
-
-  if (error) {
-    throw new Error(`judgeme connect mark failed: ${error.message}`);
-  }
-}
-
-export async function regenerateJudgeMeToken(storeId: string): Promise<string> {
-  const supabase = getSupabaseAdmin();
-  const token = generateWebhookToken();
-  const { error } = await supabase
-    .from("stores")
-    .update({
-      judgeme_webhook_token: token,
-      judgeme_connected_at: null,
-    })
-    .eq("id", storeId);
-
-  if (error) {
-    throw new Error(
-      `token regenerate failed: ${error.message}. Apply Supabase migration 20260706150000_reports_and_judgeme.sql`,
-    );
-  }
-
-  return token;
-}
-
-export async function verifyJudgeMeWebhook(params: {
-  shopDomain: string;
-  token: string;
-}): Promise<{ storeId: string } | null> {
-  const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase
-    .from("stores")
-    .select("id, shop_domain, judgeme_webhook_token, is_active")
-    .eq("shop_domain", params.shopDomain)
-    .maybeSingle();
-
-  if (error || !data?.is_active) {
-    return null;
-  }
-
-  if (data.judgeme_webhook_token !== params.token) {
-    return null;
-  }
-
-  return { storeId: data.id as string };
 }

@@ -1,5 +1,5 @@
 import { getSupabaseAdmin } from "./supabase.server";
-import { markJudgeMeConnected } from "./reports.server";
+import { markJudgemeConnected } from "./judgeme-settings.server";
 
 type ReviewRuleType = "review_text" | "review_photo" | "ugc_video";
 
@@ -200,7 +200,7 @@ export async function processJudgeMeReviewWebhook(params: {
     .update({ last_activity_at: new Date().toISOString() })
     .eq("id", customer.id);
 
-  await markJudgeMeConnected(params.storeId);
+  await markJudgemeConnected(params.storeId);
 
   console.log(
     `[review-engine] judgeme review=${review.id} customer=${customer.id} +${rule.points} ${ruleType}`,

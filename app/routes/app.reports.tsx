@@ -1,7 +1,7 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
-import { json } from "@remix-run/node";
-import { Form, useLoaderData, useNavigation, useSearchParams } from "@remix-run/react";
-import { useCallback, useState } from "react";
+import { json, redirect } from "@remix-run/node";
+import { Form, useActionData, useLoaderData, useNavigation, useSearchParams } from "@remix-run/react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Page,
   Layout,
@@ -35,6 +35,8 @@ import {
   type ProgramHealth,
   type RoiMetrics,
 } from "../lib/reports.server";
+import { getSupabaseAdmin } from "../lib/supabase.server";
+import { processJudgeMeReviewWebhook } from "../lib/review-engine.server";
 
 const MONTHS = [
   { label: "January", value: "1" },
@@ -129,12 +131,69 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   }
 
   const form = await request.formData();
-  if (form.get("intent") !== "regenerate_judgeme_token") {
-    return json({ ok: false, error: "Unknown action" });
-  }
+  const intent = String(form.get("intent") ?? "");
 
-  await regenerateJudgeMeToken(store.id);
-  return json({ ok: true, intent: "regenerate_judgeme_token" });
+  try {
+    if (intent === "regenerate_judgeme_token") {
+      await regenerateJudgeMeToken(store.id);
+      return redirect("/app/reports?tab=2&judgeme=regenerated");
+    }
+
+    if (intent === "test_judgeme_webhook") {
+      const email = String(form.get("test_email") ?? "").trim();
+      if (!email) {
+        return json({
+          ok: false,
+          error: "Enter a customer email that exists in your loyalty program.",
+          intent,
+        });
+      }
+
+      const supabase = getSupabaseAdmin();
+      const { data: customer } = await supabase
+        .from("customers")
+        .select("id")
+        .eq("store_id", store.id)
+        .ilike("email", email)
+        .maybeSingle();
+
+      if (!customer) {
+        return json({
+          ok: false,
+          error: "No loyalty member found with that email.",
+          intent,
+        });
+      }
+
+      const points = await processJudgeMeReviewWebhook({
+        storeId: store.id,
+        payload: {
+          event: "review/published",
+          shop_domain: session.shop,
+          review: {
+            id: Date.now(),
+            hidden: false,
+            rating: 5,
+            body: "Anka Loyalty test review",
+            pictures: [],
+            reviewer: { email, name: "Test" },
+          },
+        },
+      });
+
+      return redirect(
+        `/app/reports?tab=2&judgeme=test&points=${points}`,
+      );
+    }
+
+    return json({ ok: false, error: "Unknown action" });
+  } catch (error) {
+    return json({
+      ok: false,
+      error: error instanceof Error ? error.message : "Action failed",
+      intent,
+    });
+  }
 };
 
 function Metric({ label, value }: { label: string; value: string }) {
@@ -334,12 +393,20 @@ function JudgeMeTab({
   judgeme,
   shop,
 }: {
-  judgeme: { webhookUrl: string; connectedAt: string | null; webhookToken: string };
+  judgeme: {
+    webhookUrl: string;
+    connectedAt: string | null;
+    webhookToken: string;
+    testCurl: string;
+  };
   shop: string;
 }) {
   const shopify = useAppBridge();
   const navigation = useNavigation();
-  const copying = navigation.state !== "idle";
+  const actionData = useActionData<typeof action>();
+  const [searchParams] = useSearchParams();
+  const [testEmail, setTestEmail] = useState("");
+  const busy = navigation.state !== "idle";
 
   const copyUrl = async () => {
     try {
@@ -350,8 +417,46 @@ function JudgeMeTab({
     }
   };
 
+  const copyCurl = async () => {
+    try {
+      await navigator.clipboard.writeText(judgeme.testCurl);
+      shopify.toast.show("Test curl copied");
+    } catch {
+      shopify.toast.show("Could not copy curl", { isError: true });
+    }
+  };
+
+  const regenerated = searchParams.get("judgeme") === "regenerated";
+  const testResult = searchParams.get("judgeme") === "test";
+  const testPoints = searchParams.get("points");
+
   return (
     <BlockStack gap="400">
+      {regenerated ? (
+        <Banner tone="success" title="Webhook token regenerated">
+          <p>Copy the new URL into Judge.me — the old URL will stop working.</p>
+        </Banner>
+      ) : null}
+
+      {testResult ? (
+        <Banner
+          tone={Number(testPoints) > 0 ? "success" : "info"}
+          title="Test webhook processed"
+        >
+          <p>
+            {Number(testPoints) > 0
+              ? `Awarded ${testPoints} review points. Check the customer ledger.`
+              : "Webhook accepted but no points were awarded (rule disabled, duplicate test id, or program paused)."}
+          </p>
+        </Banner>
+      ) : null}
+
+      {actionData && !actionData.ok && actionData.intent?.includes("judgeme") ? (
+        <Banner tone="critical" title="Action failed">
+          <p>{actionData.error}</p>
+        </Banner>
+      ) : null}
+
       <Card>
         <BlockStack gap="300">
           <InlineStack align="space-between" blockAlign="center">
@@ -364,34 +469,86 @@ function JudgeMeTab({
           </InlineStack>
 
           <Text as="p" variant="bodySm" tone="subdued">
-            Award review points when Judge.me publishes a review. Text and photo rules
-            are configured under Program → Earning Rules.
+            Judge.me supports custom outbound webhooks from the merchant dashboard
+            (Settings → Integrations → Webhooks). When a review is published, Judge.me
+            POSTs JSON to your URL — same pattern used by Drip, Mechanic, and other
+            integrations. Text/photo point values are under Program → Earning Rules.
           </Text>
 
-          <TextField
-            label="Webhook URL"
-            value={judgeme.webhookUrl}
-            readOnly
-            autoComplete="off"
-            connectedRight={<Button onClick={copyUrl}>Copy</Button>}
-          />
+          <InlineStack gap="200" blockAlign="end" wrap={false}>
+            <Box minWidth="0" width="100%">
+              <TextField
+                label="Webhook URL"
+                value={judgeme.webhookUrl}
+                readOnly
+                autoComplete="off"
+              />
+            </Box>
+            <Button onClick={copyUrl}>Copy URL</Button>
+          </InlineStack>
 
           <List type="number">
             <List.Item>
-              In Judge.me → Settings → Integrations → Webhooks, add a webhook.
+              Open the <strong>Judge.me Product Reviews</strong> app in Shopify admin.
             </List.Item>
             <List.Item>
-              Event: <strong>review/published</strong> (or review/created).
+              Go to <strong>Settings → Integrations → Webhooks</strong> (or API →
+              Webhooks on some plans).
             </List.Item>
-            <List.Item>Paste the URL above. Judge.me sends <code>shop_domain</code> — we verify it matches {shop}.</List.Item>
             <List.Item>
-              Reviewer email must match a loyalty member (same email as Shopify customer).
+              Add webhook — event: <strong>review/published</strong> (recommended) or{" "}
+              <strong>review/created</strong>.
+            </List.Item>
+            <List.Item>
+              Paste the URL above. Payload includes <code>shop_domain</code>{" "}
+              ({shop}) — we verify it matches your store.
+            </List.Item>
+            <List.Item>
+              Reviewer email must match a loyalty member&apos;s Shopify email.
             </List.Item>
           </List>
 
+          <Divider />
+
+          <Text as="h3" variant="headingSm">
+            Test without Judge.me
+          </Text>
+          <Text as="p" variant="bodySm" tone="subdued">
+            Simulate a published review for an existing member (uses the same handler
+            as the live webhook).
+          </Text>
+          <Form method="post">
+            <input type="hidden" name="intent" value="test_judgeme_webhook" />
+            <InlineStack gap="300" blockAlign="end" wrap={false}>
+              <Box minWidth="280px">
+                <TextField
+                  label="Customer email"
+                  name="test_email"
+                  value={testEmail}
+                  onChange={setTestEmail}
+                  autoComplete="off"
+                  placeholder="member@example.com"
+                />
+              </Box>
+              <Button submit loading={busy}>
+                Send test review
+              </Button>
+            </InlineStack>
+          </Form>
+
+          <Text as="p" variant="bodySm" tone="subdued">
+            Or run from terminal (replace email with a real member):
+          </Text>
+          <Box padding="300" background="bg-surface-secondary" borderRadius="200">
+            <pre style={{ margin: 0, whiteSpace: "pre-wrap", fontSize: 12 }}>
+              {judgeme.testCurl}
+            </pre>
+          </Box>
+          <Button onClick={copyCurl}>Copy test curl</Button>
+
           <Form method="post">
             <input type="hidden" name="intent" value="regenerate_judgeme_token" />
-            <Button submit loading={copying} variant="plain" tone="critical">
+            <Button submit loading={busy} variant="plain" tone="critical">
               Regenerate webhook token
             </Button>
           </Form>

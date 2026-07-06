@@ -1,6 +1,6 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { Form, Link, useLoaderData } from "@remix-run/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Page,
   Card,
@@ -85,6 +85,11 @@ function CustomerFilters(props: {
 }) {
   const [tier, setTier] = useState(props.filters.tier);
   const [negative, setNegative] = useState(props.filters.negative);
+
+  useEffect(() => {
+    setTier(props.filters.tier);
+    setNegative(props.filters.negative);
+  }, [props.filters.tier, props.filters.negative]);
 
   const tierOptions = [
     { label: "All tiers", value: "" },

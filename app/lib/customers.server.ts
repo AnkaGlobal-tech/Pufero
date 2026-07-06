@@ -50,51 +50,89 @@ export interface CustomerListRow {
   last_activity_at: string | null;
 }
 
-/** List customers with balance + tier (RPC when available, query fallback). */
+/** List customers with balance + tier (direct query when filtering; RPC when unfiltered). */
 export async function listStoreCustomers(params: {
   storeId: string;
   tierSlug?: string;
   negativeOnly?: boolean;
 }): Promise<CustomerListRow[]> {
-  const supabase = getSupabaseAdmin();
   const hasFilters = Boolean(params.tierSlug || params.negativeOnly);
 
-  const rpcArgs: {
-    p_store_id: string;
-    p_tier_slug?: string;
-    p_negative_balance?: boolean;
-  } = { p_store_id: params.storeId };
-
-  if (params.tierSlug) {
-    rpcArgs.p_tier_slug = params.tierSlug;
-  }
-  if (params.negativeOnly) {
-    rpcArgs.p_negative_balance = true;
+  if (hasFilters) {
+    return listStoreCustomersDirect(params);
   }
 
-  const rpc = await supabase.rpc("store_customers_list", rpcArgs);
+  const supabase = getSupabaseAdmin();
+  const rpc = await supabase.rpc("store_customers_list", {
+    p_store_id: params.storeId,
+  });
+
   if (!rpc.error && rpc.data) {
-    return normalizeCustomerListRows(rpc.data);
-  }
-
-  // Legacy DB function only accepts p_store_id — extra params break PostgREST matching.
-  if (hasFilters || rpc.error) {
-    const legacy = await supabase.rpc("store_customers_list", {
-      p_store_id: params.storeId,
-    });
-    if (!legacy.error && legacy.data) {
-      let rows = normalizeCustomerListRows(legacy.data);
-      if (params.tierSlug) {
-        rows = rows.filter((r) => r.tier_slug === params.tierSlug);
-      }
-      if (params.negativeOnly) {
-        rows = rows.filter((r) => r.balance < 0);
-      }
-      return rows;
-    }
+    return enrichCustomerListRows(
+      params.storeId,
+      normalizeCustomerListRows(rpc.data),
+    );
   }
 
   return listStoreCustomersDirect(params);
+}
+
+async function loadTierSlugMaps(storeId: string): Promise<{
+  slugByName: Map<string, string>;
+  slugByLabel: Map<string, string>;
+}> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("tiers")
+    .select("name, slug")
+    .eq("store_id", storeId);
+
+  if (error) {
+    throw new Error(`tier lookup failed: ${error.message}`);
+  }
+
+  const slugByName = new Map<string, string>();
+  const slugByLabel = new Map<string, string>();
+  for (const tier of data ?? []) {
+    slugByName.set(tier.name.trim().toLowerCase(), tier.slug);
+    slugByLabel.set(tier.slug.trim().toLowerCase(), tier.slug);
+  }
+  return { slugByName, slugByLabel };
+}
+
+function normalizeTierKey(value: string | null | undefined): string {
+  return (value ?? "").trim().toLowerCase();
+}
+
+async function enrichCustomerListRows(
+  storeId: string,
+  rows: CustomerListRow[],
+): Promise<CustomerListRow[]> {
+  const needsSlug = rows.some((row) => row.tier_name && !row.tier_slug);
+  if (!needsSlug) {
+    return rows;
+  }
+
+  const { slugByName } = await loadTierSlugMaps(storeId);
+  return rows.map((row) => ({
+    ...row,
+    tier_slug:
+      row.tier_slug ??
+      slugByName.get(normalizeTierKey(row.tier_name)) ??
+      null,
+  }));
+}
+
+function matchesTierFilter(
+  row: CustomerListRow,
+  tierSlug: string,
+  slugByLabel: Map<string, string>,
+): boolean {
+  const wanted = slugByLabel.get(normalizeTierKey(tierSlug)) ?? tierSlug;
+  if (row.tier_slug && row.tier_slug === wanted) {
+    return true;
+  }
+  return normalizeTierKey(row.tier_name) === normalizeTierKey(tierSlug);
 }
 
 function normalizeCustomerListRows(raw: unknown): CustomerListRow[] {
@@ -118,13 +156,25 @@ async function listStoreCustomersDirect(params: {
   negativeOnly?: boolean;
 }): Promise<CustomerListRow[]> {
   const supabase = getSupabaseAdmin();
+  const tierSlug = params.tierSlug?.trim();
+  const tierMaps = tierSlug ? await loadTierSlugMaps(params.storeId) : null;
 
-  const { data: rows, error } = await supabase
+  let query = supabase
     .from("customers")
     .select(
-      "id, email, first_name, last_name, total_spend, order_count, last_activity_at, tiers(name, slug)",
+      tierSlug
+        ? "id, email, first_name, last_name, total_spend, order_count, last_activity_at, tiers!inner(name, slug)"
+        : "id, email, first_name, last_name, total_spend, order_count, last_activity_at, tiers(name, slug)",
     )
-    .eq("store_id", params.storeId)
+    .eq("store_id", params.storeId);
+
+  if (tierSlug && tierMaps) {
+    const canonicalSlug =
+      tierMaps.slugByLabel.get(normalizeTierKey(tierSlug)) ?? tierSlug;
+    query = query.eq("tiers.slug", canonicalSlug);
+  }
+
+  const { data: rows, error } = await query
     .order("last_activity_at", { ascending: false, nullsFirst: false })
     .limit(500);
 
@@ -175,8 +225,10 @@ async function listStoreCustomersDirect(params: {
     };
   });
 
-  if (params.tierSlug) {
-    result = result.filter((r) => r.tier_slug === params.tierSlug);
+  if (params.tierSlug && tierMaps) {
+    result = result.filter((row) =>
+      matchesTierFilter(row, params.tierSlug!, tierMaps.slugByLabel),
+    );
   }
   if (params.negativeOnly) {
     result = result.filter((r) => r.balance < 0);

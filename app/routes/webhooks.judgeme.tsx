@@ -1,6 +1,6 @@
 import type { ActionFunctionArgs } from "@remix-run/node";
 
-import { verifyJudgeMeWebhook } from "../lib/reports.server";
+import { verifyJudgemeWebhook } from "../lib/judgeme-settings.server";
 import { processJudgeMeReviewWebhook } from "../lib/review-engine.server";
 import { captureException } from "../lib/sentry.server";
 
@@ -18,7 +18,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     return new Response("Missing shop or token", { status: 400 });
   }
 
-  const verified = await verifyJudgeMeWebhook({ shopDomain, token });
+  const verified = await verifyJudgemeWebhook({ shopDomain, token });
   if (!verified) {
     return new Response("Unauthorized", { status: 401 });
   }
