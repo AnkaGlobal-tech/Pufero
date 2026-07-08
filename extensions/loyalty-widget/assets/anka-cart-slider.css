@@ -1,4 +1,4 @@
-/* Fixed dock — left edge of cart drawer (tab + popover) */
+/* Cart drawer dock — tab + popover (mounted inside cart-drawer when open) */
 .anka-cart-dock {
   --anka-primary: #c9a84c;
   --anka-bg: #0f1b2d;
@@ -7,13 +7,19 @@
   --anka-muted: rgba(247, 245, 240, 0.58);
   --anka-border: rgba(255, 255, 255, 0.12);
   position: fixed;
-  z-index: 999999;
+  z-index: 2147483000;
   pointer-events: none;
   opacity: 0;
   visibility: hidden;
-  transform: translate(-100%, -50%);
   transition: opacity 0.2s ease, visibility 0.2s ease;
   font-family: Inter, system-ui, sans-serif;
+}
+
+/* Inside cart drawer — avoids z-index / off-screen issues */
+.anka-cart-dock.is-in-drawer {
+  position: absolute;
+  z-index: 999;
+  transform: none;
 }
 
 .anka-cart-dock.is-visible {
@@ -32,28 +38,26 @@
   align-items: flex-start;
 }
 
-/* Vertical tab on cart's left edge */
 .anka-cart-tab {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 2px;
-  width: 44px;
-  min-height: 72px;
+  width: 46px;
+  min-height: 74px;
   padding: 10px 6px;
-  border: 1px solid var(--anka-border);
-  border-right: none;
-  border-radius: 12px 0 0 12px;
+  border: 1px solid color-mix(in srgb, var(--anka-primary) 60%, #000);
+  border-radius: 12px;
   background: var(--anka-primary);
   color: #111;
   cursor: pointer;
-  box-shadow: -4px 4px 20px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.22);
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .anka-cart-tab:hover {
-  transform: translateX(-2px);
+  transform: scale(1.04);
 }
 
 .anka-cart-tab-icon {
@@ -65,15 +69,15 @@
   font-size: 11px;
   font-weight: 700;
   line-height: 1.1;
-  max-width: 36px;
+  max-width: 38px;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-/* Popover opens to the left of the tab */
+/* Popover opens to the right of the tab (inside drawer) */
 .anka-cart-popover {
   position: absolute;
-  right: calc(100% + 8px);
+  left: calc(100% + 10px);
   top: 0;
   width: 220px;
   padding: 12px 14px 14px;
@@ -84,7 +88,7 @@
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.28);
   opacity: 0;
   visibility: hidden;
-  transform: translateX(8px);
+  transform: translateX(-6px);
   transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s ease;
   pointer-events: none;
 }
@@ -204,7 +208,6 @@
   margin-bottom: 8px;
 }
 
-/* /cart page — compact inline card (not full width) */
 .anka-cart-inline-root {
   margin: 0 0 16px;
   max-width: 320px;
@@ -227,7 +230,6 @@
   margin-top: 4px;
 }
 
-/* Hide rewards launcher while cart drawer is open */
 body.anka-cart-drawer-open .anka-root .anka-launcher-wrap {
   opacity: 0;
   visibility: hidden;
@@ -243,11 +245,11 @@ body.anka-cart-drawer-open .anka-root .anka-backdrop {
 
 @media (max-width: 749px) {
   .anka-cart-popover {
-    width: min(220px, calc(100vw - 80px));
+    width: min(210px, calc(100vw - 100px));
   }
 
-  .anka-cart-tab {
-    width: 40px;
-    min-height: 64px;
+  .anka-cart-dock.is-in-drawer {
+    top: 72px !important;
+    left: 10px !important;
   }
 }
