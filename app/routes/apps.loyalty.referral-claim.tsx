@@ -7,7 +7,7 @@ import { getCustomerIdByShopifyId } from "../lib/widget.server";
 import { claimReferral } from "../lib/referral-engine.server";
 import { getSupabaseAdmin } from "../lib/supabase.server";
 
-/** App Proxy: POST /apps/anka/referral-claim — link referee to referrer + welcome coupon */
+/** App Proxy: POST /apps/loyalty/referral-claim — link referee to referrer + welcome coupon */
 export const action = async ({ request }: ActionFunctionArgs) => {
   if (request.method !== "POST") {
     return json({ ok: false, error: "Method not allowed" }, { status: 405 });

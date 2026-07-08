@@ -1,5 +1,5 @@
 (function () {
-  const PROXY = "/apps/anka/portal";
+  const PROXY = "/apps/loyalty/portal";
 
   const MOVEMENT_LABELS = {
     earn: "Earned",

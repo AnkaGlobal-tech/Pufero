@@ -35,7 +35,7 @@ import {
   getRecentMemberStats,
   sendWelcomeCampaign,
 } from "../lib/klaviyo-backfill.server";
-import { KLAVIYO_METRICS, KLAVIYO_FLOW_GUIDE } from "../lib/klaviyo-constants";
+import { KLAVIYO_METRICS, KLAVIYO_FLOW_GUIDE, KLAVIYO_PROFILE_KEYS } from "../lib/klaviyo-constants";
 
 const FLOW_GUIDE = KLAVIYO_FLOW_GUIDE;
 
@@ -169,9 +169,9 @@ export default function KlaviyoPage() {
             ) : (
               <Banner tone="info" title="Connect Klaviyo to email your members">
                 <p>
-                  Use Klaviyo flows triggered by Anka Loyalty events. Profile
-                  properties <code>anka_points_balance</code> and{" "}
-                  <code>anka_tier</code> stay in sync automatically.
+                  Use Klaviyo flows triggered by Loyalty events. Profile
+                  properties <code>{KLAVIYO_PROFILE_KEYS.pointsBalance}</code> and{" "}
+                  <code>{KLAVIYO_PROFILE_KEYS.tier}</code> stay in sync automatically.
                 </p>
               </Banner>
             )}
@@ -299,7 +299,7 @@ export default function KlaviyoPage() {
                 <Text as="p" variant="bodySm" tone="subdued">
                   Then in Klaviyo: Flows → Create flow → Metric trigger → choose
                   &quot;{KLAVIYO_METRICS.welcome}&quot; → design your email with{" "}
-                  {"{{ person.anka_points_balance }}"} or event properties.
+                  {"{{ person." + KLAVIYO_PROFILE_KEYS.pointsBalance + " }}"} or event properties.
                 </Text>
               </BlockStack>
             </Card>
@@ -337,8 +337,9 @@ export default function KlaviyoPage() {
                 </List>
                 <Divider />
                 <Text as="p" variant="bodySm" tone="subdued">
-                  Profile properties synced on every event: anka_points_balance,
-                  anka_tier, anka_tier_slug, anka_loyalty_member, anka_member_since.
+                  Profile properties synced on every event: {KLAVIYO_PROFILE_KEYS.pointsBalance},
+                  {KLAVIYO_PROFILE_KEYS.tier}, {KLAVIYO_PROFILE_KEYS.tierSlug},{" "}
+                  {KLAVIYO_PROFILE_KEYS.member}, {KLAVIYO_PROFILE_KEYS.memberSince}.
                 </Text>
               </BlockStack>
             </Card>

@@ -3,7 +3,7 @@ import { randomBytes } from "node:crypto";
 import { getSupabaseAdmin } from "./supabase.server";
 import { createCustomerPercentageDiscount } from "./redemption.server";
 
-export const REFERRAL_STORAGE_KEY = "anka_ref";
+export const REFERRAL_STORAGE_KEY = "loyalty_ref";
 
 export interface ReferralRuleConfig {
   refereeDiscountPercent: number;
@@ -508,7 +508,7 @@ export async function claimReferral(params: {
     shopifyCustomerId: params.shopifyCustomerId,
     code: welcomeCode,
     percentage: rule.config.refereeDiscountPercent,
-    title: `Anka Referral — ${rule.config.refereeDiscountPercent}% welcome`,
+    title: `Referral — ${rule.config.refereeDiscountPercent}% welcome`,
   });
 
   await supabase.from("points_ledger").insert({

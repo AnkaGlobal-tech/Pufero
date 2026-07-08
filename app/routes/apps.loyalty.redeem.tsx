@@ -3,12 +3,13 @@ import { json } from "@remix-run/node";
 
 import { authenticate } from "../shopify.server";
 import { getStoreByDomain } from "../lib/store.server";
-import { getCustomerIdByShopifyId } from "../lib/widget.server";
-import { redeemFlexiblePointsForCustomer } from "../lib/redemption.server";
-import { parseWidgetSettings } from "../lib/widget-settings";
-import { getSupabaseAdmin } from "../lib/supabase.server";
+import {
+  getCustomerIdByShopifyId,
+  getWidgetPayload,
+} from "../lib/widget.server";
+import { redeemPointsForCustomer } from "../lib/redemption.server";
 
-/** App Proxy: POST /apps/anka/cart-redeem — flexible points → coupon for cart */
+/** App Proxy: POST /apps/loyalty/redeem */
 export const action = async ({ request }: ActionFunctionArgs) => {
   if (request.method !== "POST") {
     return json({ ok: false, error: "Method not allowed" }, { status: 405 });
@@ -20,24 +21,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   }
 
   const store = await getStoreByDomain(session.shop);
+
   if (!store?.is_active) {
     return json({ ok: false, error: "Program unavailable" }, { status: 404 });
-  }
-
-  const supabase = getSupabaseAdmin();
-  const { data: storeRow, error: storeError } = await supabase
-    .from("stores")
-    .select("points_to_dollar_ratio, widget_settings")
-    .eq("id", store.id)
-    .single();
-
-  if (storeError || !storeRow) {
-    return json({ ok: false, error: "Store not found." }, { status: 404 });
-  }
-
-  const widgetSettings = parseWidgetSettings(storeRow.widget_settings);
-  if (!widgetSettings.cart_slider_enabled) {
-    return json({ ok: false, error: "Cart slider is disabled." }, { status: 403 });
   }
 
   const url = new URL(request.url);
@@ -49,15 +35,15 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   if (!shopifyCustomerId || !Number.isFinite(shopifyCustomerId)) {
     return json(
-      { ok: false, error: "Sign in to use points at checkout." },
+      { ok: false, error: "Sign in to redeem a coupon." },
       { status: 401 },
     );
   }
 
   const form = await request.formData();
-  const points = Math.floor(Number(form.get("points") ?? 0));
-  if (!Number.isFinite(points) || points <= 0) {
-    return json({ ok: false, error: "Select a valid points amount." }, { status: 400 });
+  const redemptionId = String(form.get("redemption_id") ?? "").trim();
+  if (!redemptionId) {
+    return json({ ok: false, error: "No redemption tier selected." }, { status: 400 });
   }
 
   const customerId = await getCustomerIdByShopifyId({
@@ -67,32 +53,30 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   if (!customerId) {
     return json(
-      { ok: false, error: "No loyalty record yet." },
+      { ok: false, error: "No loyalty record yet. Try again after your first order." },
       { status: 404 },
     );
   }
 
-  const ratio = Math.max(
-    1,
-    Math.floor(Number(storeRow.points_to_dollar_ratio ?? 100)),
-  );
-
   try {
-    const result = await redeemFlexiblePointsForCustomer({
+    const result = await redeemPointsForCustomer({
       storeId: store.id,
       customerId,
+      redemptionId,
       shopDomain: session.shop,
-      points,
-      pointsToDollarRatio: ratio,
-      minPoints: widgetSettings.cart_slider_min_points || undefined,
-      maxPoints: widgetSettings.cart_slider_max_points || undefined,
+    });
+
+    const widget = await getWidgetPayload({
+      storeId: store.id,
+      shopifyCustomerId,
     });
 
     return json({
       ok: true,
       code: result.code,
       pointsDeducted: result.pointsDeducted,
-      discountLabel: result.redemptionName,
+      redemptionName: result.redemptionName,
+      balance: widget.member?.balance ?? 0,
     });
   } catch (error) {
     return json(

@@ -1,21 +1,29 @@
-/** Klaviyo metric names — safe for client + server imports. */
+/** Klaviyo metric names — brand-neutral, safe for client + server imports. */
 export const KLAVIYO_METRICS = {
-  welcome: "Anka Loyalty Welcome",
-  pointsEarned: "Anka Points Earned",
-  pointsRedeemed: "Anka Points Redeemed",
-  tierChanged: "Anka Tier Changed",
-  pointsExpiring30d: "Anka Points Expiring Soon",
-  pointsExpiring7d: "Anka Points Expiring Soon",
-  pointsExpired: "Anka Points Expired",
-  reviewEarned: "Anka Review Points Earned",
-  connectionTest: "Anka Loyalty Connection Test",
+  welcome: "Loyalty Welcome",
+  pointsEarned: "Loyalty Points Earned",
+  pointsRedeemed: "Loyalty Points Redeemed",
+  tierChanged: "Loyalty Tier Changed",
+  pointsExpiring30d: "Loyalty Points Expiring Soon",
+  pointsExpiring7d: "Loyalty Points Expiring Soon",
+  pointsExpired: "Loyalty Points Expired",
+  reviewEarned: "Loyalty Review Points Earned",
+  connectionTest: "Loyalty Connection Test",
+} as const;
+
+export const KLAVIYO_PROFILE_KEYS = {
+  pointsBalance: "loyalty_points_balance",
+  tier: "loyalty_tier",
+  tierSlug: "loyalty_tier_slug",
+  member: "loyalty_member",
+  memberSince: "loyalty_member_since",
 } as const;
 
 export const KLAVIYO_FLOW_GUIDE = [
   {
     metric: KLAVIYO_METRICS.welcome,
     title: "Welcome / launch email",
-    body: 'Trigger when someone receives "Anka Loyalty Welcome". Use event properties for balance and earning hints.',
+    body: 'Trigger when someone receives "Loyalty Welcome". Use event properties for balance and earning hints.',
   },
   {
     metric: KLAVIYO_METRICS.pointsEarned,
@@ -35,6 +43,6 @@ export const KLAVIYO_FLOW_GUIDE = [
   {
     metric: KLAVIYO_METRICS.pointsExpiring30d,
     title: "Points expiring reminder",
-    body: "Use profile property anka_points_balance + expiry event properties.",
+    body: "Use profile property loyalty_points_balance + expiry event properties.",
   },
 ] as const;

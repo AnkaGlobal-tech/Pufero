@@ -3,9 +3,9 @@ import { json } from "@remix-run/node";
 
 import { authenticate } from "../shopify.server";
 import { getStoreByDomain } from "../lib/store.server";
-import { getCartSliderPayload } from "../lib/cart.server";
+import { getPortalPayload } from "../lib/portal.server";
 
-/** App Proxy: GET /apps/anka/cart — cart slider config for logged-in customer */
+/** App Proxy: GET /apps/loyalty/portal — logged-in customer account rewards */
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.public.appProxy(request);
   if (!session) {
@@ -24,12 +24,19 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       ? Number.parseInt(rawCustomerId, 10)
       : null;
 
-  const payload = await getCartSliderPayload({
+  if (!shopifyCustomerId || !Number.isFinite(shopifyCustomerId)) {
+    return json(
+      { ok: false, error: "Sign in to view your rewards." },
+      { status: 401 },
+    );
+  }
+
+  const payload = await getPortalPayload({
     storeId: store.id,
-    shopifyCustomerId:
-      shopifyCustomerId != null && Number.isFinite(shopifyCustomerId)
-        ? shopifyCustomerId
-        : null,
+    shopifyCustomerId,
+    shopDomain: session.shop,
+    locale: url.searchParams.get("locale"),
+    currency: url.searchParams.get("currency"),
   });
 
   if (!payload.ok) {
@@ -37,6 +44,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   }
 
   return json(payload, {
-    headers: { "Cache-Control": "private, max-age=0, no-cache" },
+    headers: {
+      "Cache-Control": "private, max-age=0, no-cache",
+    },
   });
 };

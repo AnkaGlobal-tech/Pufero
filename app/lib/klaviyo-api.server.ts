@@ -1,3 +1,5 @@
+import { KLAVIYO_METRICS } from "./klaviyo-constants";
+
 const KLAVIYO_API_REVISION = "2024-10-15";
 const KLAVIYO_EVENTS_URL = "https://a.klaviyo.com/api/events/";
 
@@ -90,11 +92,11 @@ export async function createKlaviyoEvent(
 /** Lightweight connection test — sends a metric Klaviyo accepts. */
 export async function testKlaviyoConnection(apiKey: string): Promise<void> {
   await createKlaviyoEvent(apiKey, {
-    metricName: "Anka Loyalty Connection Test",
+    metricName: KLAVIYO_METRICS.connectionTest,
     profile: {
-      email: `anka-test-${Date.now()}@loyalty.invalid`,
-      properties: { anka_connection_test: true },
+      email: `loyalty-test-${Date.now()}@loyalty.invalid`,
+      properties: { loyalty_connection_test: true },
     },
-    properties: { source: "anka-loyalty-admin" },
+    properties: { source: "loyalty-admin" },
   });
 }

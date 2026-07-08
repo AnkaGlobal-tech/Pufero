@@ -1,6 +1,6 @@
 (function () {
-  const STORAGE_KEY = "anka_ref";
-  const PROXY_CLAIM = "/apps/anka/referral-claim";
+  const STORAGE_KEY = "loyalty_ref";
+  const PROXY_CLAIM = "/apps/loyalty/referral-claim";
 
   function captureRefFromUrl() {
     try {

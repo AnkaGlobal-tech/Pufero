@@ -1,5 +1,5 @@
 (function () {
-  const PROXY_BASE = "/apps/anka";
+  const PROXY_BASE = "/apps/loyalty";
 
   const LOCALE_MAP = {
     en: "en-US",

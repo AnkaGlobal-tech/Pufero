@@ -1,7 +1,7 @@
 import { getSupabaseAdmin } from "./supabase.server";
 import { createKlaviyoEvent } from "./klaviyo-api.server";
 import { loadKlaviyoSettings } from "./klaviyo-settings.server";
-import { KLAVIYO_METRICS } from "./klaviyo-constants";
+import { KLAVIYO_METRICS, KLAVIYO_PROFILE_KEYS } from "./klaviyo-constants";
 
 export { KLAVIYO_METRICS };
 
@@ -22,19 +22,32 @@ function toNumber(value: unknown): number {
 }
 
 function mapLegacyEventName(eventName: string): string {
-  switch (eventName) {
-    case "anka_points_expiring_30d":
-    case "anka_points_expiring_7d":
-      return KLAVIYO_METRICS.pointsExpiring30d;
-    case "anka_points_expired":
-      return KLAVIYO_METRICS.pointsExpired;
-    default:
-      if (eventName.startsWith("Anka ")) return eventName;
-      return eventName
-        .split("_")
-        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-        .join(" ");
+  const legacyMap: Record<string, string> = {
+    anka_points_expiring_30d: KLAVIYO_METRICS.pointsExpiring30d,
+    anka_points_expiring_7d: KLAVIYO_METRICS.pointsExpiring7d,
+    anka_points_expired: KLAVIYO_METRICS.pointsExpired,
+    loyalty_points_expiring_30d: KLAVIYO_METRICS.pointsExpiring30d,
+    loyalty_points_expiring_7d: KLAVIYO_METRICS.pointsExpiring7d,
+    loyalty_points_expired: KLAVIYO_METRICS.pointsExpired,
+    "Anka Loyalty Welcome": KLAVIYO_METRICS.welcome,
+    "Anka Points Earned": KLAVIYO_METRICS.pointsEarned,
+    "Anka Points Redeemed": KLAVIYO_METRICS.pointsRedeemed,
+    "Anka Tier Changed": KLAVIYO_METRICS.tierChanged,
+    "Anka Points Expiring Soon": KLAVIYO_METRICS.pointsExpiring30d,
+    "Anka Points Expired": KLAVIYO_METRICS.pointsExpired,
+    "Anka Review Points Earned": KLAVIYO_METRICS.reviewEarned,
+    "Anka Loyalty Connection Test": KLAVIYO_METRICS.connectionTest,
+  };
+
+  if (legacyMap[eventName]) {
+    return legacyMap[eventName];
   }
+
+  if (eventName.startsWith("Anka ")) {
+    return eventName.replace(/^Anka /, "Loyalty ");
+  }
+
+  return eventName;
 }
 
 export async function getLoyaltyProfileSnapshot(
@@ -91,12 +104,12 @@ export function buildKlaviyoProfileProperties(
   snapshot: LoyaltyProfileSnapshot,
 ): Record<string, unknown> {
   return {
-    anka_points_balance: snapshot.balance,
-    anka_tier: snapshot.tierName ?? "None",
-    anka_tier_slug: snapshot.tierSlug ?? "",
-    anka_loyalty_member: true,
+    [KLAVIYO_PROFILE_KEYS.pointsBalance]: snapshot.balance,
+    [KLAVIYO_PROFILE_KEYS.tier]: snapshot.tierName ?? "None",
+    [KLAVIYO_PROFILE_KEYS.tierSlug]: snapshot.tierSlug ?? "",
+    [KLAVIYO_PROFILE_KEYS.member]: true,
     ...(snapshot.memberSince
-      ? { anka_member_since: snapshot.memberSince }
+      ? { [KLAVIYO_PROFILE_KEYS.memberSince]: snapshot.memberSince }
       : {}),
   };
 }
@@ -129,8 +142,8 @@ export async function pushKlaviyoEventForCustomer(params: {
       properties: buildKlaviyoProfileProperties(snapshot),
     },
     properties: {
-      anka_points_balance: snapshot.balance,
-      anka_tier: snapshot.tierName,
+      [KLAVIYO_PROFILE_KEYS.pointsBalance]: snapshot.balance,
+      [KLAVIYO_PROFILE_KEYS.tier]: snapshot.tierName,
       ...params.eventProperties,
     },
   });
@@ -181,8 +194,8 @@ export async function syncQueuedKlaviyoEvent(eventId: string): Promise<boolean> 
   const profileProps = snapshot
     ? buildKlaviyoProfileProperties(snapshot)
     : {
-        anka_points_balance: toNumber(payload.points_balance),
-        anka_loyalty_member: true,
+        [KLAVIYO_PROFILE_KEYS.pointsBalance]: toNumber(payload.points_balance),
+        [KLAVIYO_PROFILE_KEYS.member]: true,
       };
 
   await createKlaviyoEvent(settings.apiKey, {

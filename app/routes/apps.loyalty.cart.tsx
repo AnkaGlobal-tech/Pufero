@@ -3,9 +3,9 @@ import { json } from "@remix-run/node";
 
 import { authenticate } from "../shopify.server";
 import { getStoreByDomain } from "../lib/store.server";
-import { getLandingPayload } from "../lib/landing.server";
+import { getCartSliderPayload } from "../lib/cart.server";
 
-/** App Proxy: GET /apps/anka/landing — public rewards program page */
+/** App Proxy: GET /apps/loyalty/cart — cart slider config for logged-in customer */
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.public.appProxy(request);
   if (!session) {
@@ -17,14 +17,26 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     return json({ ok: false, error: "Program unavailable" }, { status: 404 });
   }
 
-  const payload = await getLandingPayload(store.id);
+  const url = new URL(request.url);
+  const rawCustomerId = url.searchParams.get("logged_in_customer_id");
+  const shopifyCustomerId =
+    rawCustomerId && rawCustomerId !== "0"
+      ? Number.parseInt(rawCustomerId, 10)
+      : null;
+
+  const payload = await getCartSliderPayload({
+    storeId: store.id,
+    shopifyCustomerId:
+      shopifyCustomerId != null && Number.isFinite(shopifyCustomerId)
+        ? shopifyCustomerId
+        : null,
+  });
+
   if (!payload.ok) {
     return json(payload, { status: 404 });
   }
 
   return json(payload, {
-    headers: {
-      "Cache-Control": "public, max-age=300",
-    },
+    headers: { "Cache-Control": "private, max-age=0, no-cache" },
   });
 };

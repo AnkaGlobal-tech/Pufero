@@ -7,7 +7,7 @@ import { getReferralLandingPayload } from "../lib/referral-engine.server";
 import { parseWidgetSettings } from "../lib/widget-settings";
 import { getSupabaseAdmin } from "../lib/supabase.server";
 
-/** App Proxy: GET /apps/anka/referral-landing?ref=CODE — public referral invite page */
+/** App Proxy: GET /apps/loyalty/referral-landing?ref=CODE — public referral invite page */
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.public.appProxy(request);
   if (!session) {

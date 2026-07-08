@@ -39,7 +39,7 @@ Append-only puan hareketleri.
 Magaza bazli kazanma kurallari. `rule_type` + `points_value` + `config` (JSON).
 
 ### `tiers`
-VIP tier tanimlari. `shopify_customer_tag` otomatik tag atamasi icin (orn. `anka-tier-gold`).
+VIP tier tanimlari. `shopify_customer_tag` otomatik tag atamasi icin (orn. `tier-gold`).
 
 ### `redemptions`
 Kupon kademeleri. `reward_type`: `fixed_amount` · `percentage` · `free_shipping` · `free_product`

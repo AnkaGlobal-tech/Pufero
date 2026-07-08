@@ -1,5 +1,5 @@
 (function () {
-  const PROXY = "/apps/anka/referral-landing";
+  const PROXY = "/apps/loyalty/referral-landing";
 
   class AnkaReferralLanding {
     constructor(root) {

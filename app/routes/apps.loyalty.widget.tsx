@@ -5,7 +5,7 @@ import { authenticate } from "../shopify.server";
 import { getStoreByDomain } from "../lib/store.server";
 import { getWidgetPayload } from "../lib/widget.server";
 
-/** App Proxy: GET /apps/anka/widget */
+/** App Proxy: GET /apps/loyalty/widget */
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.public.appProxy(request);
   if (!session) {

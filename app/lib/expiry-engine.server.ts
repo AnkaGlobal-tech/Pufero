@@ -134,14 +134,14 @@ export async function processPointsExpiry(storeId: string): Promise<number> {
       const sent = await reminderAlreadySent(
         storeId,
         customer.id,
-        "anka_points_expiring_30d",
+        "loyalty_points_expiring_30d",
         expiryKey,
       );
       if (!sent) {
         await logKlaviyoEvent({
           storeId,
           customerId: customer.id,
-          eventName: "anka_points_expiring_30d",
+          eventName: "loyalty_points_expiring_30d",
           payload: {
             expiry_date: expiryKey,
             points_balance: balance,
@@ -156,14 +156,14 @@ export async function processPointsExpiry(storeId: string): Promise<number> {
       const sent = await reminderAlreadySent(
         storeId,
         customer.id,
-        "anka_points_expiring_7d",
+        "loyalty_points_expiring_7d",
         expiryKey,
       );
       if (!sent) {
         await logKlaviyoEvent({
           storeId,
           customerId: customer.id,
-          eventName: "anka_points_expiring_7d",
+          eventName: "loyalty_points_expiring_7d",
           payload: {
             expiry_date: expiryKey,
             points_balance: balance,
@@ -203,7 +203,7 @@ export async function processPointsExpiry(storeId: string): Promise<number> {
       await logKlaviyoEvent({
         storeId,
         customerId: customer.id,
-        eventName: "anka_points_expired",
+        eventName: "loyalty_points_expired",
         payload: {
           expiry_date: expiryKey,
           points_expired: balance,

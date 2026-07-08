@@ -137,7 +137,7 @@ async function createShopifyDiscount(params: {
   const endsAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString();
 
   const common = {
-    title: `Anka Loyalty — ${params.redemption.name}`,
+    title: `Loyalty — ${params.redemption.name}`,
     code: params.code,
     startsAt,
     endsAt,

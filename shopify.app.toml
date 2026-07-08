@@ -68,8 +68,8 @@ api_version = "2026-07"
 scopes = "write_products,read_products,read_orders,read_draft_orders,read_customers,write_customers,write_discounts"
 
 [app_proxy]
-url = "https://anka-loyalty-production.up.railway.app/apps/anka"
-subpath = "anka"
+url = "https://anka-loyalty-production.up.railway.app/apps/loyalty"
+subpath = "loyalty"
 prefix = "apps"
 
 [auth]

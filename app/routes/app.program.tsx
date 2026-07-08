@@ -295,7 +295,7 @@ function TiersSection({ tiers }: { tiers: TierRow[] }) {
             VIP Tiers
           </Text>
           <Text as="p" variant="bodySm" tone="subdued">
-            Customer tags are assigned automatically in Shopify (e.g. anka-tier-gold). For
+            Customer tags are assigned automatically in Shopify (e.g. tier-gold). For
             discounts, use Discounts → automatic discount → customer tag condition.
           </Text>
           <BlockStack gap="400">

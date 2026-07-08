@@ -1,6 +1,6 @@
 (function () {
-  const CART_PROXY = "/apps/anka/cart";
-  const REDEEM_PROXY = "/apps/anka/cart-redeem";
+  const CART_PROXY = "/apps/loyalty/cart";
+  const REDEEM_PROXY = "/apps/loyalty/cart-redeem";
 
   const MOUNT_SELECTORS = [
     "#CartDrawer",
