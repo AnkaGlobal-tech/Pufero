@@ -6,7 +6,6 @@
     "cart-drawer",
     "#CartDrawer",
     ".cart-drawer",
-    "[data-cart-drawer]",
     "#cart-drawer",
   ];
 
@@ -14,7 +13,6 @@
     "form[action='/cart'] .cart__items",
     "form[action='/cart']",
     "#main-cart-items",
-    ".cart__contents",
   ];
 
   class AnkaCartSlider {
@@ -28,6 +26,9 @@
       this.error = null;
       this.popoverOpen = false;
       this.drawerOpen = false;
+      this.renderKey = "";
+      this.syncScheduled = false;
+      this.drawerObserver = null;
       this.locale = document.documentElement.lang || "en";
     }
 
@@ -81,28 +82,23 @@
       return null;
     }
 
+    /** Strict check — avoid false positives that block the page. */
     isDrawerOpen(drawer) {
-      const scrollLocked =
-        document.documentElement.classList.contains("overflow-hidden") ||
-        document.body.classList.contains("overflow-hidden");
+      if (!drawer) return false;
+      if (drawer.hasAttribute("open")) return true;
+      if (drawer.classList.contains("active")) return true;
+      if (drawer.classList.contains("is-open")) return true;
+      if (drawer.getAttribute("aria-hidden") === "false") return true;
+      return false;
+    }
 
-      if (drawer) {
-        if (drawer.hasAttribute("open")) return true;
-        if (drawer.classList.contains("active")) return true;
-        if (drawer.classList.contains("is-open")) return true;
-        if (drawer.classList.contains("drawer--is-open")) return true;
-        if (drawer.getAttribute("aria-hidden") === "false") return true;
-
-        const style = window.getComputedStyle(drawer);
-        if (style.display !== "none" && style.visibility !== "hidden") {
-          const rect = drawer.getBoundingClientRect();
-          if (rect.width > 60 && rect.left < window.innerWidth - 24) {
-            return true;
-          }
-        }
-      }
-
-      return scrollLocked && Boolean(drawer);
+    scheduleSync() {
+      if (this.syncScheduled) return;
+      this.syncScheduled = true;
+      requestAnimationFrame(() => {
+        this.syncScheduled = false;
+        this.sync();
+      });
     }
 
     setDrawerOpenState(open) {
@@ -117,44 +113,6 @@
       }
     }
 
-    mountDockInDrawer(drawer) {
-      if (!this.dock || !drawer) return;
-
-      const rect = drawer.getBoundingClientRect();
-      const useFixed =
-        Boolean(drawer.shadowRoot) ||
-        window.getComputedStyle(drawer).position === "fixed";
-
-      if (useFixed) {
-        this.dock.classList.remove("is-in-drawer");
-        if (this.dock.parentElement !== document.body) {
-          document.body.appendChild(this.dock);
-        }
-        this.dock.style.position = "fixed";
-        this.dock.style.top = `${Math.min(Math.max(rect.top + 96, 80), window.innerHeight - 160)}px`;
-        this.dock.style.left = `${rect.left + 14}px`;
-        this.dock.style.zIndex = "2147483000";
-        return;
-      }
-
-      if (this.dock.parentElement !== drawer) {
-        drawer.appendChild(this.dock);
-      }
-      this.dock.classList.add("is-in-drawer");
-      this.dock.style.position = "";
-      this.dock.style.zIndex = "";
-      this.dock.style.top = "96px";
-      this.dock.style.left = "14px";
-    }
-
-    unmountDockFromDrawer() {
-      if (!this.dock) return;
-      this.dock.classList.remove("is-in-drawer");
-      if (this.dock.parentElement && this.dock.parentElement !== document.body) {
-        document.body.appendChild(this.dock);
-      }
-    }
-
     ensureDock() {
       if (this.dock) return;
       this.dock = document.createElement("div");
@@ -164,10 +122,26 @@
       this.applyTheme(this.dock);
     }
 
+    positionDock(drawer) {
+      if (!this.dock || !drawer) return;
+      const rect = drawer.getBoundingClientRect();
+      if (rect.width < 40) return;
+
+      this.dock.style.position = "fixed";
+      this.dock.style.top = `${Math.min(
+        Math.max(rect.top + 88, 72),
+        window.innerHeight - 130,
+      )}px`;
+      this.dock.style.left = `${Math.max(8, rect.left + 12)}px`;
+      this.dock.style.zIndex = "100000";
+    }
+
     canRedeem() {
       const d = this.data;
       if (!d) return false;
-      return d.isMember && d.maxPoints >= d.minPoints && d.balance >= d.minPoints;
+      return (
+        d.isMember && d.maxPoints >= d.minPoints && d.balance >= d.minPoints
+      );
     }
 
     renderSliderContent(compact) {
@@ -188,8 +162,6 @@
           <p class="anka-cart-muted">${this.fmt(d.balance)} pts — not enough yet.</p>`;
       }
 
-      const applyLabel = compact ? "Apply" : "Apply to cart";
-
       return `
         <p class="anka-cart-popover-title">Redeem points</p>
         <div class="anka-cart-popover-row">
@@ -204,7 +176,7 @@
         ${this.message ? `<div class="anka-cart-success">${this.message}</div>` : ""}
         ${this.error ? `<div class="anka-cart-error">${this.error}</div>` : ""}
         <button type="button" class="anka-cart-apply" ${this.loading ? "disabled" : ""}>
-          ${this.loading ? "…" : applyLabel}
+          ${this.loading ? "…" : compact ? "Apply" : "Apply to cart"}
         </button>`;
     }
 
@@ -215,16 +187,19 @@
         this.render();
       });
 
-      root.querySelector(".anka-cart-apply")?.addEventListener("click", () =>
-        this.apply(),
-      );
+      root.querySelector(".anka-cart-apply")?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        this.apply();
+      });
 
-      root.querySelector("[data-anka-cart-close]")?.addEventListener("click", () => {
+      root.querySelector("[data-anka-cart-close]")?.addEventListener("click", (e) => {
+        e.stopPropagation();
         this.popoverOpen = false;
         this.render();
       });
 
-      root.querySelector(".anka-cart-tab")?.addEventListener("click", () => {
+      root.querySelector(".anka-cart-tab")?.addEventListener("click", (e) => {
+        e.stopPropagation();
         this.popoverOpen = !this.popoverOpen;
         this.render();
       });
@@ -234,16 +209,32 @@
       if (!this.dock || !this.data?.enabled) return;
 
       const d = this.data;
-      const tabPts = d.isMember ? this.fmt(d.balance) : "★";
-      const popoverClass = this.popoverOpen ? " is-open" : "";
+      const key = [
+        this.drawerOpen,
+        this.popoverOpen,
+        this.points,
+        this.loading,
+        this.message,
+        this.error,
+        d.balance,
+      ].join("|");
 
       this.dock.classList.toggle("is-visible", this.drawerOpen);
+
       if (!this.drawerOpen) {
-        this.dock.innerHTML = "";
+        if (this.renderKey !== key) {
+          this.dock.innerHTML = "";
+          this.renderKey = key;
+        }
         return;
       }
 
+      if (this.renderKey === key) return;
+      this.renderKey = key;
       this.applyTheme(this.dock);
+
+      const tabPts = d.isMember ? this.fmt(d.balance) : "★";
+      const popoverClass = this.popoverOpen ? " is-open" : "";
 
       this.dock.innerHTML = `
         <div class="anka-cart-dock-inner">
@@ -261,15 +252,19 @@
     }
 
     renderInline() {
-      if (!this.data?.enabled) return;
-      if (this.drawerOpen) {
-        if (this.inlineRoot) this.inlineRoot.remove();
-        this.inlineRoot = null;
+      if (!this.data?.enabled || this.drawerOpen) {
+        if (this.inlineRoot) {
+          this.inlineRoot.remove();
+          this.inlineRoot = null;
+        }
         return;
       }
+
       if (!window.location.pathname.includes("/cart")) {
-        if (this.inlineRoot) this.inlineRoot.remove();
-        this.inlineRoot = null;
+        if (this.inlineRoot) {
+          this.inlineRoot.remove();
+          this.inlineRoot = null;
+        }
         return;
       }
 
@@ -287,12 +282,8 @@
       }
 
       this.applyTheme(this.inlineRoot);
-
       this.inlineRoot.innerHTML = `
-        <div class="anka-cart-inline">
-          ${this.renderSliderContent(false)}
-        </div>`;
-
+        <div class="anka-cart-inline">${this.renderSliderContent(false)}</div>`;
       this.bindSliderEvents(this.inlineRoot);
     }
 
@@ -306,13 +297,25 @@
       const drawer = this.findCartDrawer();
       const open = this.isDrawerOpen(drawer);
       this.setDrawerOpenState(open);
+
       if (open && drawer) {
         this.ensureDock();
-        this.mountDockInDrawer(drawer);
-      } else {
-        this.unmountDockFromDrawer();
+        this.positionDock(drawer);
       }
+
       this.render();
+    }
+
+    watchDrawer() {
+      const drawer = this.findCartDrawer();
+      if (!drawer || drawer.dataset.ankaCartWatch) return;
+      drawer.dataset.ankaCartWatch = "1";
+
+      this.drawerObserver = new MutationObserver(() => this.scheduleSync());
+      this.drawerObserver.observe(drawer, {
+        attributes: true,
+        attributeFilter: ["class", "open", "aria-hidden"],
+      });
     }
 
     async applyDiscountToCart(code) {
@@ -330,11 +333,6 @@
       }
 
       document.dispatchEvent(new CustomEvent("anka:cart:updated"));
-      if (typeof window.publish === "function") {
-        try {
-          window.publish("cart-update", { source: "anka-loyalty" });
-        } catch (_) {}
-      }
       window.location.reload();
     }
 
@@ -342,6 +340,7 @@
       this.loading = true;
       this.error = null;
       this.message = null;
+      this.renderKey = "";
       this.render();
 
       try {
@@ -360,6 +359,7 @@
       } catch (err) {
         this.error = err instanceof Error ? err.message : "Error";
         this.loading = false;
+        this.renderKey = "";
         this.render();
       }
     }
@@ -375,48 +375,26 @@
         );
 
         this.sync();
+        this.watchDrawer();
 
-        const observer = new MutationObserver(() => this.sync());
-        observer.observe(document.body, {
-          attributes: true,
-          attributeFilter: ["class", "open", "aria-hidden"],
-          childList: true,
-          subtree: true,
+        document.addEventListener("cart:open", () => this.scheduleSync());
+        document.addEventListener("drawerOpen", () => this.scheduleSync());
+
+        window.addEventListener("resize", () => {
+          if (this.drawerOpen) this.scheduleSync();
         });
 
-        const poll = setInterval(() => {
-          if (!this.data?.enabled) {
-            clearInterval(poll);
-            return;
-          }
-          this.sync();
-        }, 400);
-
-        window.addEventListener("resize", () => this.sync());
-        document.addEventListener("cart:open", () => this.sync());
-        document.addEventListener("drawerOpen", () => this.sync());
-        document.addEventListener("cart:updated", () => this.sync());
-
-        /* Dawn / common themes */
-        document.addEventListener("click", (e) => {
-          const t = e.target;
-          if (
-            t instanceof Element &&
-            t.closest(
-              'a[href="/cart"], a[href*="/cart"], [data-cart-toggle], cart-icon-bubble, .cart-count-bubble, #cart-icon-bubble',
-            )
-          ) {
-            setTimeout(() => this.sync(), 80);
-            setTimeout(() => this.sync(), 320);
-          }
-        });
-
-        document.addEventListener("click", (e) => {
-          if (!this.popoverOpen || !this.dock) return;
-          if (this.dock.contains(e.target)) return;
-          this.popoverOpen = false;
-          this.render();
-        });
+        document.addEventListener(
+          "click",
+          (e) => {
+            if (!this.popoverOpen || !this.dock) return;
+            if (e.target instanceof Node && this.dock.contains(e.target)) return;
+            this.popoverOpen = false;
+            this.renderKey = "";
+            this.render();
+          },
+          true,
+        );
       } catch (err) {
         console.error("[anka-cart-slider]", err);
       }

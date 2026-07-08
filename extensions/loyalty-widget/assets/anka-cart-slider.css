@@ -7,7 +7,7 @@
   --anka-muted: rgba(247, 245, 240, 0.58);
   --anka-border: rgba(255, 255, 255, 0.12);
   position: fixed;
-  z-index: 2147483000;
+  z-index: 100000;
   pointer-events: none;
   opacity: 0;
   visibility: hidden;
@@ -15,11 +15,9 @@
   font-family: Inter, system-ui, sans-serif;
 }
 
-/* Inside cart drawer — avoids z-index / off-screen issues */
+/* Dock always lives on body — never injected into cart-drawer */
 .anka-cart-dock.is-in-drawer {
-  position: absolute;
-  z-index: 999;
-  transform: none;
+  position: fixed;
 }
 
 .anka-cart-dock.is-visible {
@@ -246,10 +244,5 @@ body.anka-cart-drawer-open .anka-root .anka-backdrop {
 @media (max-width: 749px) {
   .anka-cart-popover {
     width: min(210px, calc(100vw - 100px));
-  }
-
-  .anka-cart-dock.is-in-drawer {
-    top: 72px !important;
-    left: 10px !important;
   }
 }
