@@ -127,6 +127,15 @@
         }
         this.syncDefaultTab();
         this.render();
+
+        document.addEventListener("anka:cart-drawer", (e) => {
+          if (e.detail?.open) {
+            this.open = false;
+            this.message = null;
+            this.error = null;
+            this.render();
+          }
+        });
       } catch (err) {
         console.error("[anka-widget] init failed", err);
       }

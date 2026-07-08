@@ -2,25 +2,32 @@
   const CART_PROXY = "/apps/loyalty/cart";
   const REDEEM_PROXY = "/apps/loyalty/cart-redeem";
 
-  const MOUNT_SELECTORS = [
-    "#CartDrawer",
+  const DRAWER_SELECTORS = [
     "cart-drawer",
+    "#CartDrawer",
     ".cart-drawer",
     "[data-cart-drawer]",
     "#cart-drawer",
+  ];
+
+  const INLINE_MOUNT_SELECTORS = [
+    "form[action='/cart'] .cart__items",
     "form[action='/cart']",
-    ".cart__contents",
     "#main-cart-items",
+    ".cart__contents",
   ];
 
   class AnkaCartSlider {
     constructor() {
-      this.root = null;
+      this.dock = null;
+      this.inlineRoot = null;
       this.data = null;
       this.points = 0;
       this.loading = false;
       this.message = null;
       this.error = null;
+      this.popoverOpen = false;
+      this.drawerOpen = false;
       this.locale = document.documentElement.lang || "en";
     }
 
@@ -45,13 +52,13 @@
       return points / this.data.pointsToDollarRatio;
     }
 
-    applyTheme() {
-      if (!this.root || !this.data) return;
+    applyTheme(el) {
+      if (!el || !this.data) return;
       const s = this.data.settings;
-      this.root.style.setProperty("--anka-primary", s.primaryColor);
-      this.root.style.setProperty("--anka-bg", s.backgroundColor);
-      this.root.style.setProperty("--anka-text", s.textColor);
-      this.root.style.setProperty(
+      el.style.setProperty("--anka-primary", s.primaryColor);
+      el.style.setProperty("--anka-bg", s.backgroundColor);
+      el.style.setProperty("--anka-text", s.textColor);
+      el.style.setProperty(
         "--anka-surface",
         `color-mix(in srgb, ${s.backgroundColor} 88%, #000)`,
       );
@@ -66,73 +73,202 @@
       return res.json();
     }
 
-    findMount() {
-      for (const sel of MOUNT_SELECTORS) {
+    findCartDrawer() {
+      for (const sel of DRAWER_SELECTORS) {
         const el = document.querySelector(sel);
         if (el) return el;
-      }
-      if (window.location.pathname.includes("/cart")) {
-        return document.querySelector("main") || document.body;
       }
       return null;
     }
 
-    render() {
-      if (!this.root || !this.data?.enabled) return;
+    isDrawerOpen(drawer) {
+      if (!drawer) return false;
+      if (drawer.hasAttribute("open")) return true;
+      if (drawer.classList.contains("active")) return true;
+      if (drawer.classList.contains("is-open")) return true;
+      if (drawer.classList.contains("drawer--is-open")) return true;
+      if (drawer.getAttribute("aria-hidden") === "false") return true;
 
+      const style = window.getComputedStyle(drawer);
+      if (style.display === "none" || style.visibility === "hidden") return false;
+
+      const rect = drawer.getBoundingClientRect();
+      return rect.width > 80 && rect.right > window.innerWidth * 0.45;
+    }
+
+    setDrawerOpenState(open) {
+      if (open === this.drawerOpen) return;
+      this.drawerOpen = open;
+      if (!open) this.popoverOpen = false;
+      document.body.classList.toggle("anka-cart-drawer-open", open);
+      document.dispatchEvent(
+        new CustomEvent("anka:cart-drawer", { detail: { open } }),
+      );
+    }
+
+    positionDock(drawer) {
+      if (!this.dock || !drawer) return;
+      const rect = drawer.getBoundingClientRect();
+      const top = Math.min(
+        Math.max(rect.top + 72, 72),
+        window.innerHeight - 120,
+      );
+      this.dock.style.top = `${top}px`;
+      this.dock.style.left = `${Math.max(12, rect.left - 4)}px`;
+    }
+
+    ensureDock() {
+      if (this.dock) return;
+      this.dock = document.createElement("div");
+      this.dock.className = "anka-cart-dock";
+      this.dock.id = "anka-cart-dock";
+      document.body.appendChild(this.dock);
+      this.applyTheme(this.dock);
+    }
+
+    canRedeem() {
       const d = this.data;
+      if (!d) return false;
+      return d.isMember && d.maxPoints >= d.minPoints && d.balance >= d.minPoints;
+    }
+
+    renderSliderContent(compact) {
+      const d = this.data;
+      if (!d) return "";
+
       const discount = this.fmtMoney(this.dollarValue(this.points));
 
       if (!d.isMember) {
-        this.root.innerHTML = `
-          <div class="anka-cart-slider anka-cart-slider--guest">
-            <p class="anka-cart-slider-title">Use loyalty points</p>
-            <p class="anka-cart-muted"><a href="/account/login">Sign in</a> to apply points at checkout.</p>
-          </div>`;
-        return;
+        return `
+          <p class="anka-cart-popover-title">Redeem points</p>
+          <p class="anka-cart-muted"><a href="/account/login">Sign in</a> to apply points.</p>`;
       }
 
-      if (d.maxPoints < d.minPoints || d.balance < d.minPoints) {
-        this.root.innerHTML = `
-          <div class="anka-cart-slider">
-            <p class="anka-cart-slider-title">Rewards balance</p>
-            <p class="anka-cart-muted">${this.fmt(d.balance)} points — not enough to redeem yet.</p>
-          </div>`;
-        return;
+      if (!this.canRedeem()) {
+        return `
+          <p class="anka-cart-popover-title">Your balance</p>
+          <p class="anka-cart-muted">${this.fmt(d.balance)} pts — not enough yet.</p>`;
       }
 
-      this.root.innerHTML = `
-        <div class="anka-cart-slider">
-          <div class="anka-cart-slider-head">
-            <p class="anka-cart-slider-title">Apply points</p>
-            <span class="anka-cart-balance">${this.fmt(d.balance)} pts</span>
-          </div>
-          <div class="anka-cart-slider-values">
-            <strong>${this.fmt(this.points)} pts</strong>
-            <span class="anka-cart-muted">≈ ${discount} off</span>
-          </div>
-          <input type="range" class="anka-cart-range" min="${d.minPoints}" max="${d.maxPoints}" step="${d.step}" value="${this.points}" ${this.loading ? "disabled" : ""} />
-          <div class="anka-cart-slider-limits">
-            <span>${this.fmt(d.minPoints)} min</span>
-            <span>${this.fmt(d.maxPoints)} max</span>
-          </div>
-          ${this.message ? `<div class="anka-cart-success">${this.message}</div>` : ""}
-          ${this.error ? `<div class="anka-cart-error">${this.error}</div>` : ""}
-          <button type="button" class="anka-cart-apply" ${this.loading ? "disabled" : ""}>
-            ${this.loading ? "Applying…" : "Apply discount to cart"}
-          </button>
-        </div>`;
+      const applyLabel = compact ? "Apply" : "Apply to cart";
 
-      const range = this.root.querySelector(".anka-cart-range");
-      range?.addEventListener("input", (e) => {
+      return `
+        <p class="anka-cart-popover-title">Redeem points</p>
+        <div class="anka-cart-popover-row">
+          <strong>${this.fmt(this.points)}</strong>
+          <span class="anka-cart-muted">≈ ${discount}</span>
+        </div>
+        <input type="range" class="anka-cart-range" min="${d.minPoints}" max="${d.maxPoints}" step="${d.step}" value="${this.points}" ${this.loading ? "disabled" : ""} />
+        <div class="anka-cart-slider-limits">
+          <span>${this.fmt(d.minPoints)}</span>
+          <span>${this.fmt(d.maxPoints)}</span>
+        </div>
+        ${this.message ? `<div class="anka-cart-success">${this.message}</div>` : ""}
+        ${this.error ? `<div class="anka-cart-error">${this.error}</div>` : ""}
+        <button type="button" class="anka-cart-apply" ${this.loading ? "disabled" : ""}>
+          ${this.loading ? "…" : applyLabel}
+        </button>`;
+    }
+
+    bindSliderEvents(root) {
+      root.querySelector(".anka-cart-range")?.addEventListener("input", (e) => {
         this.points = Number(e.target.value);
         this.error = null;
         this.render();
       });
 
-      this.root.querySelector(".anka-cart-apply")?.addEventListener("click", () =>
+      root.querySelector(".anka-cart-apply")?.addEventListener("click", () =>
         this.apply(),
       );
+
+      root.querySelector("[data-anka-cart-close]")?.addEventListener("click", () => {
+        this.popoverOpen = false;
+        this.render();
+      });
+
+      root.querySelector(".anka-cart-tab")?.addEventListener("click", () => {
+        this.popoverOpen = !this.popoverOpen;
+        this.render();
+      });
+    }
+
+    renderDock() {
+      if (!this.dock || !this.data?.enabled) return;
+
+      const d = this.data;
+      const tabPts = d.isMember ? this.fmt(d.balance) : "★";
+      const popoverClass = this.popoverOpen ? " is-open" : "";
+
+      this.dock.classList.toggle("is-visible", this.drawerOpen);
+      if (!this.drawerOpen) {
+        this.dock.innerHTML = "";
+        return;
+      }
+
+      this.applyTheme(this.dock);
+
+      this.dock.innerHTML = `
+        <div class="anka-cart-dock-inner">
+          <button type="button" class="anka-cart-tab" aria-expanded="${this.popoverOpen}" aria-label="Redeem loyalty points">
+            <span class="anka-cart-tab-icon">★</span>
+            <span class="anka-cart-tab-label">${tabPts}</span>
+          </button>
+          <div class="anka-cart-popover${popoverClass}" role="dialog" aria-label="Redeem points">
+            <button type="button" class="anka-cart-popover-close" data-anka-cart-close aria-label="Close">×</button>
+            ${this.renderSliderContent(true)}
+          </div>
+        </div>`;
+
+      this.bindSliderEvents(this.dock);
+    }
+
+    renderInline() {
+      if (!this.data?.enabled) return;
+      if (this.drawerOpen) {
+        if (this.inlineRoot) this.inlineRoot.remove();
+        this.inlineRoot = null;
+        return;
+      }
+      if (!window.location.pathname.includes("/cart")) {
+        if (this.inlineRoot) this.inlineRoot.remove();
+        this.inlineRoot = null;
+        return;
+      }
+
+      let mount = null;
+      for (const sel of INLINE_MOUNT_SELECTORS) {
+        mount = document.querySelector(sel);
+        if (mount) break;
+      }
+      if (!mount) return;
+
+      if (!this.inlineRoot) {
+        this.inlineRoot = document.createElement("div");
+        this.inlineRoot.className = "anka-cart-inline-root";
+        mount.prepend(this.inlineRoot);
+      }
+
+      this.applyTheme(this.inlineRoot);
+
+      this.inlineRoot.innerHTML = `
+        <div class="anka-cart-inline">
+          ${this.renderSliderContent(false)}
+        </div>`;
+
+      this.bindSliderEvents(this.inlineRoot);
+    }
+
+    render() {
+      if (!this.data?.enabled) return;
+      this.renderDock();
+      this.renderInline();
+    }
+
+    sync() {
+      const drawer = this.findCartDrawer();
+      this.setDrawerOpenState(this.isDrawerOpen(drawer));
+      if (this.drawerOpen && drawer) this.positionDock(drawer);
+      this.render();
     }
 
     async applyDiscountToCart(code) {
@@ -175,8 +311,8 @@
         const data = await res.json();
         if (!data.ok) throw new Error(data.error || "Redeem failed");
 
+        this.popoverOpen = false;
         await this.applyDiscountToCart(data.code);
-        this.message = `Applied ${data.code} (−${this.fmt(data.pointsDeducted)} pts)`;
       } catch (err) {
         this.error = err instanceof Error ? err.message : "Error";
         this.loading = false;
@@ -184,36 +320,36 @@
       }
     }
 
-    mountInto(container) {
-      if (this.root?.parentElement === container) return;
-      if (this.root) this.root.remove();
-      this.root = document.createElement("div");
-      this.root.className = "anka-cart-slider-root";
-      this.root.id = "anka-cart-slider-mount";
-      container.prepend(this.root);
-      this.applyTheme();
-      this.render();
-    }
-
     async init() {
       try {
         this.data = await this.fetchConfig();
         if (!this.data?.enabled) return;
 
-        this.points = this.data.maxPoints || this.data.minPoints;
+        this.points = Math.min(
+          this.data.maxPoints || this.data.minPoints,
+          this.data.balance || this.data.minPoints,
+        );
 
-        const tryMount = () => {
-          const target = this.findMount();
-          if (target) this.mountInto(target);
-        };
+        this.sync();
 
-        tryMount();
+        const observer = new MutationObserver(() => this.sync());
+        observer.observe(document.body, {
+          attributes: true,
+          attributeFilter: ["class", "open", "aria-hidden"],
+          childList: true,
+          subtree: true,
+        });
 
-        const observer = new MutationObserver(() => tryMount());
-        observer.observe(document.body, { childList: true, subtree: true });
+        window.addEventListener("resize", () => this.sync());
+        document.addEventListener("cart:open", () => this.sync());
+        document.addEventListener("drawerOpen", () => this.sync());
 
-        document.addEventListener("cart:open", tryMount);
-        document.addEventListener("drawerOpen", tryMount);
+        document.addEventListener("click", (e) => {
+          if (!this.popoverOpen || !this.dock) return;
+          if (this.dock.contains(e.target)) return;
+          this.popoverOpen = false;
+          this.render();
+        });
       } catch (err) {
         console.error("[anka-cart-slider]", err);
       }

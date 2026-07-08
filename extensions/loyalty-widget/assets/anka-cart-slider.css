@@ -1,61 +1,148 @@
-.anka-cart-slider-root {
+/* Fixed dock — left edge of cart drawer (tab + popover) */
+.anka-cart-dock {
   --anka-primary: #c9a84c;
   --anka-bg: #0f1b2d;
   --anka-text: #f7f5f0;
   --anka-surface: #121c2e;
   --anka-muted: rgba(247, 245, 240, 0.58);
   --anka-border: rgba(255, 255, 255, 0.12);
-  margin: 16px 0;
+  position: fixed;
+  z-index: 999999;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transform: translate(-100%, -50%);
+  transition: opacity 0.2s ease, visibility 0.2s ease;
   font-family: Inter, system-ui, sans-serif;
 }
 
-.anka-cart-slider-root * {
+.anka-cart-dock.is-visible {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.anka-cart-dock * {
   box-sizing: border-box;
 }
 
-.anka-cart-slider {
-  padding: 16px;
-  border-radius: 14px;
+.anka-cart-dock-inner {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+}
+
+/* Vertical tab on cart's left edge */
+.anka-cart-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 44px;
+  min-height: 72px;
+  padding: 10px 6px;
+  border: 1px solid var(--anka-border);
+  border-right: none;
+  border-radius: 12px 0 0 12px;
+  background: var(--anka-primary);
+  color: #111;
+  cursor: pointer;
+  box-shadow: -4px 4px 20px rgba(0, 0, 0, 0.18);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.anka-cart-tab:hover {
+  transform: translateX(-2px);
+}
+
+.anka-cart-tab-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.anka-cart-tab-label {
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.1;
+  max-width: 36px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Popover opens to the left of the tab */
+.anka-cart-popover {
+  position: absolute;
+  right: calc(100% + 8px);
+  top: 0;
+  width: 220px;
+  padding: 12px 14px 14px;
+  border-radius: 12px;
   background: var(--anka-surface);
   border: 1px solid var(--anka-border);
   color: var(--anka-text);
-  animation: anka-cart-in 0.35s ease;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.28);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateX(8px);
+  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s ease;
+  pointer-events: none;
 }
 
-.anka-cart-slider-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 10px;
+.anka-cart-popover.is-open {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(0);
+  pointer-events: auto;
 }
 
-.anka-cart-slider-title {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 700;
+.anka-cart-popover-close {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--anka-muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
 }
 
-.anka-cart-balance {
+.anka-cart-popover-close:hover {
+  background: color-mix(in srgb, var(--anka-text) 8%, transparent);
+  color: var(--anka-text);
+}
+
+.anka-cart-popover-title {
+  margin: 0 24px 8px 0;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
   color: var(--anka-muted);
 }
 
-.anka-cart-slider-values {
+.anka-cart-popover-row {
   display: flex;
   align-items: baseline;
-  gap: 10px;
-  margin-bottom: 12px;
+  gap: 8px;
+  margin-bottom: 10px;
 }
 
-.anka-cart-slider-values strong {
-  font-size: 20px;
+.anka-cart-popover-row strong {
+  font-size: 18px;
+  font-weight: 700;
 }
 
 .anka-cart-muted {
   color: var(--anka-muted);
-  font-size: 13px;
+  font-size: 12px;
   margin: 0;
+  line-height: 1.4;
 }
 
 .anka-cart-muted a {
@@ -65,33 +152,33 @@
 .anka-cart-range {
   width: 100%;
   accent-color: var(--anka-primary);
-  margin: 4px 0 8px;
+  margin: 2px 0 6px;
+  height: 4px;
 }
 
 .anka-cart-slider-limits {
   display: flex;
   justify-content: space-between;
-  font-size: 11px;
+  font-size: 10px;
   color: var(--anka-muted);
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .anka-cart-apply {
   width: 100%;
-  padding: 12px 16px;
+  padding: 8px 12px;
   border: none;
-  border-radius: 10px;
+  border-radius: 8px;
   background: var(--anka-primary);
   color: #111;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 700;
   cursor: pointer;
-  transition: opacity 0.15s, transform 0.15s;
+  transition: opacity 0.15s;
 }
 
 .anka-cart-apply:hover:not(:disabled) {
-  transform: translateY(-1px);
-  opacity: 0.95;
+  opacity: 0.92;
 }
 
 .anka-cart-apply:disabled {
@@ -100,30 +187,67 @@
 }
 
 .anka-cart-success {
-  padding: 10px 12px;
-  border-radius: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
   background: rgba(45, 155, 110, 0.15);
   color: #7ddeb8;
-  font-size: 13px;
-  margin-bottom: 10px;
+  font-size: 11px;
+  margin-bottom: 8px;
 }
 
 .anka-cart-error {
-  padding: 10px 12px;
-  border-radius: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
   background: rgba(220, 38, 38, 0.12);
   color: #fca5a5;
-  font-size: 13px;
-  margin-bottom: 10px;
+  font-size: 11px;
+  margin-bottom: 8px;
 }
 
-@keyframes anka-cart-in {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
+/* /cart page — compact inline card (not full width) */
+.anka-cart-inline-root {
+  margin: 0 0 16px;
+  max-width: 320px;
+}
+
+.anka-cart-inline {
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--anka-surface);
+  border: 1px solid var(--anka-border);
+  color: var(--anka-text);
+  font-family: Inter, system-ui, sans-serif;
+}
+
+.anka-cart-inline .anka-cart-popover-title {
+  margin-bottom: 6px;
+}
+
+.anka-cart-inline .anka-cart-apply {
+  margin-top: 4px;
+}
+
+/* Hide rewards launcher while cart drawer is open */
+body.anka-cart-drawer-open .anka-root .anka-launcher-wrap {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: scale(0.92) translateY(8px);
+  transition: opacity 0.2s ease, visibility 0.2s ease, transform 0.2s ease;
+}
+
+body.anka-cart-drawer-open .anka-root .anka-panel,
+body.anka-cart-drawer-open .anka-root .anka-backdrop {
+  display: none !important;
+}
+
+@media (max-width: 749px) {
+  .anka-cart-popover {
+    width: min(220px, calc(100vw - 80px));
   }
-  to {
-    opacity: 1;
-    transform: translateY(0);
+
+  .anka-cart-tab {
+    width: 40px;
+    min-height: 64px;
   }
 }
