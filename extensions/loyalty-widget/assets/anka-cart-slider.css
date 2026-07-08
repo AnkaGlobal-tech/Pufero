@@ -72,10 +72,11 @@
   text-overflow: ellipsis;
 }
 
-/* Popover opens to the right of the tab (inside drawer) */
+/* Popover opens to the left of the tab (into the backdrop, not over cart) */
 .anka-cart-popover {
   position: absolute;
-  left: calc(100% + 10px);
+  right: calc(100% + 10px);
+  left: auto;
   top: 0;
   width: 220px;
   padding: 12px 14px 14px;
@@ -86,7 +87,7 @@
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.28);
   opacity: 0;
   visibility: hidden;
-  transform: translateX(-6px);
+  transform: translateX(8px);
   transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s ease;
   pointer-events: none;
 }

@@ -82,6 +82,48 @@
       return null;
     }
 
+    /** Visible drawer panel (not full-screen overlay host). Dawn: .cart-drawer__inner */
+    findDrawerPanel(drawer) {
+      const PANEL_SELECTORS = [
+        ".cart-drawer__inner",
+        ".drawer__inner",
+        "[role='dialog']",
+        ".drawer__contents",
+        ".cart-drawer",
+      ];
+
+      const searchRoots = [drawer];
+      if (drawer.shadowRoot) searchRoots.push(drawer.shadowRoot);
+
+      for (const root of searchRoots) {
+        for (const sel of PANEL_SELECTORS) {
+          const el = root.querySelector?.(sel);
+          if (!el) continue;
+          const r = el.getBoundingClientRect();
+          if (
+            r.width >= 260 &&
+            r.width <= window.innerWidth * 0.92 &&
+            r.left > window.innerWidth * 0.08
+          ) {
+            return el;
+          }
+        }
+      }
+
+      const outer = drawer.getBoundingClientRect();
+      const panelWidth = Math.min(440, Math.max(300, outer.width * 0.4));
+      return {
+        getBoundingClientRect: () => ({
+          top: outer.top,
+          left: window.innerWidth - panelWidth,
+          right: window.innerWidth,
+          width: panelWidth,
+          height: outer.height,
+          bottom: outer.bottom,
+        }),
+      };
+    }
+
     /** Strict check — avoid false positives that block the page. */
     isDrawerOpen(drawer) {
       if (!drawer) return false;
@@ -124,7 +166,8 @@
 
     positionDock(drawer) {
       if (!this.dock || !drawer) return;
-      const rect = drawer.getBoundingClientRect();
+      const panel = this.findDrawerPanel(drawer);
+      const rect = panel.getBoundingClientRect();
       if (rect.width < 40) return;
 
       this.dock.style.position = "fixed";
@@ -132,7 +175,9 @@
         Math.max(rect.top + 88, 72),
         window.innerHeight - 130,
       )}px`;
-      this.dock.style.left = `${Math.max(8, rect.left + 12)}px`;
+      /* Tab sits just to the left of the cart panel (not viewport left) */
+      this.dock.style.left = `${rect.left - 6}px`;
+      this.dock.style.transform = "translateX(-100%)";
       this.dock.style.zIndex = "100000";
     }
 
