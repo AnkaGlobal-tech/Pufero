@@ -2,29 +2,33 @@
   const CART_PROXY = "/apps/loyalty/cart";
   const REDEEM_PROXY = "/apps/loyalty/cart-redeem";
 
-  const DRAWER_SELECTORS = [
-    "cart-drawer",
-    "#CartDrawer",
-    ".cart-drawer",
-    "#cart-drawer",
+  const DRAWER_SELECTORS = ["cart-drawer", "#CartDrawer", ".cart-drawer", "#cart-drawer"];
+
+  const FOOTER_SELECTORS = [
+    ".cart-drawer__footer",
+    "#CartDrawer-CartFooter",
+    ".drawer__footer",
+    ".cart__footer",
+    "[data-cart-footer]",
   ];
 
   const INLINE_MOUNT_SELECTORS = [
-    "form[action='/cart'] .cart__items",
+    "form[action='/cart'] .cart__blocks",
+    "form[action='/cart'] .cart__footer",
     "form[action='/cart']",
-    "#main-cart-items",
+    "#main-cart-footer",
   ];
 
   class AnkaCartSlider {
     constructor() {
-      this.dock = null;
+      this.drawerRoot = null;
       this.inlineRoot = null;
       this.data = null;
       this.points = 0;
       this.loading = false;
       this.message = null;
       this.error = null;
-      this.popoverOpen = false;
+      this.expanded = false;
       this.drawerOpen = false;
       this.renderKey = "";
       this.syncScheduled = false;
@@ -61,7 +65,7 @@
       el.style.setProperty("--anka-text", s.textColor);
       el.style.setProperty(
         "--anka-surface",
-        `color-mix(in srgb, ${s.backgroundColor} 88%, #000)`,
+        `color-mix(in srgb, ${s.backgroundColor} 92%, #fff)`,
       );
     }
 
@@ -74,6 +78,14 @@
       return res.json();
     }
 
+    queryInDrawer(drawer, selector) {
+      if (drawer.shadowRoot) {
+        const hit = drawer.shadowRoot.querySelector(selector);
+        if (hit) return hit;
+      }
+      return drawer.querySelector(selector);
+    }
+
     findCartDrawer() {
       for (const sel of DRAWER_SELECTORS) {
         const el = document.querySelector(sel);
@@ -82,56 +94,22 @@
       return null;
     }
 
-    /** Visible drawer panel (not full-screen overlay host). Dawn: .cart-drawer__inner */
-    findDrawerPanel(drawer) {
-      const PANEL_SELECTORS = [
-        ".cart-drawer__inner",
-        ".drawer__inner",
-        "[role='dialog']",
-        ".drawer__contents",
-        ".cart-drawer",
-      ];
-
-      const searchRoots = [drawer];
-      if (drawer.shadowRoot) searchRoots.push(drawer.shadowRoot);
-
-      for (const root of searchRoots) {
-        for (const sel of PANEL_SELECTORS) {
-          const el = root.querySelector?.(sel);
-          if (!el) continue;
-          const r = el.getBoundingClientRect();
-          if (
-            r.width >= 260 &&
-            r.width <= window.innerWidth * 0.92 &&
-            r.left > window.innerWidth * 0.08
-          ) {
-            return el;
-          }
-        }
+    findDrawerFooter(drawer) {
+      for (const sel of FOOTER_SELECTORS) {
+        const el = this.queryInDrawer(drawer, sel);
+        if (el) return el;
       }
-
-      const outer = drawer.getBoundingClientRect();
-      const panelWidth = Math.min(440, Math.max(300, outer.width * 0.4));
-      return {
-        getBoundingClientRect: () => ({
-          top: outer.top,
-          left: window.innerWidth - panelWidth,
-          right: window.innerWidth,
-          width: panelWidth,
-          height: outer.height,
-          bottom: outer.bottom,
-        }),
-      };
+      return null;
     }
 
-    /** Strict check — avoid false positives that block the page. */
     isDrawerOpen(drawer) {
       if (!drawer) return false;
-      if (drawer.hasAttribute("open")) return true;
-      if (drawer.classList.contains("active")) return true;
-      if (drawer.classList.contains("is-open")) return true;
-      if (drawer.getAttribute("aria-hidden") === "false") return true;
-      return false;
+      return (
+        drawer.hasAttribute("open") ||
+        drawer.classList.contains("active") ||
+        drawer.classList.contains("is-open") ||
+        drawer.getAttribute("aria-hidden") === "false"
+      );
     }
 
     scheduleSync() {
@@ -146,39 +124,19 @@
     setDrawerOpenState(open) {
       const changed = open !== this.drawerOpen;
       this.drawerOpen = open;
-      if (!open) this.popoverOpen = false;
+      if (!open) {
+        this.expanded = false;
+        if (this.drawerRoot) {
+          this.drawerRoot.remove();
+          this.drawerRoot = null;
+        }
+      }
       document.body.classList.toggle("anka-cart-drawer-open", open);
       if (changed) {
         document.dispatchEvent(
           new CustomEvent("anka:cart-drawer", { detail: { open } }),
         );
       }
-    }
-
-    ensureDock() {
-      if (this.dock) return;
-      this.dock = document.createElement("div");
-      this.dock.className = "anka-cart-dock";
-      this.dock.id = "anka-cart-dock";
-      document.body.appendChild(this.dock);
-      this.applyTheme(this.dock);
-    }
-
-    positionDock(drawer) {
-      if (!this.dock || !drawer) return;
-      const panel = this.findDrawerPanel(drawer);
-      const rect = panel.getBoundingClientRect();
-      if (rect.width < 40) return;
-
-      this.dock.style.position = "fixed";
-      this.dock.style.top = `${Math.min(
-        Math.max(rect.top + 88, 72),
-        window.innerHeight - 130,
-      )}px`;
-      /* Tab sits just to the left of the cart panel (not viewport left) */
-      this.dock.style.left = `${rect.left - 6}px`;
-      this.dock.style.transform = "translateX(-100%)";
-      this.dock.style.zIndex = "100000";
     }
 
     canRedeem() {
@@ -189,46 +147,85 @@
       );
     }
 
-    renderSliderContent(compact) {
+    renderPanelContent() {
       const d = this.data;
       if (!d) return "";
 
-      const discount = this.fmtMoney(this.dollarValue(this.points));
-
       if (!d.isMember) {
-        return `
-          <p class="anka-cart-popover-title">Redeem points</p>
-          <p class="anka-cart-muted"><a href="/account/login">Sign in</a> to apply points.</p>`;
+        return `<p class="anka-cart-muted"><a href="/account/login">Sign in</a> to redeem points at checkout.</p>`;
       }
 
       if (!this.canRedeem()) {
-        return `
-          <p class="anka-cart-popover-title">Your balance</p>
-          <p class="anka-cart-muted">${this.fmt(d.balance)} pts — not enough yet.</p>`;
+        return `<p class="anka-cart-muted">${this.fmt(d.balance)} points — not enough to redeem yet.</p>`;
       }
 
+      const discount = this.fmtMoney(this.dollarValue(this.points));
+
       return `
-        <p class="anka-cart-popover-title">Redeem points</p>
         <div class="anka-cart-popover-row">
-          <strong>${this.fmt(this.points)}</strong>
-          <span class="anka-cart-muted">≈ ${discount}</span>
+          <strong>${this.fmt(this.points)} pts</strong>
+          <span class="anka-cart-muted">≈ ${discount} off</span>
         </div>
         <input type="range" class="anka-cart-range" min="${d.minPoints}" max="${d.maxPoints}" step="${d.step}" value="${this.points}" ${this.loading ? "disabled" : ""} />
         <div class="anka-cart-slider-limits">
-          <span>${this.fmt(d.minPoints)}</span>
-          <span>${this.fmt(d.maxPoints)}</span>
+          <span>${this.fmt(d.minPoints)} min</span>
+          <span>${this.fmt(d.maxPoints)} max</span>
         </div>
         ${this.message ? `<div class="anka-cart-success">${this.message}</div>` : ""}
         ${this.error ? `<div class="anka-cart-error">${this.error}</div>` : ""}
         <button type="button" class="anka-cart-apply" ${this.loading ? "disabled" : ""}>
-          ${this.loading ? "…" : compact ? "Apply" : "Apply to cart"}
+          ${this.loading ? "Applying…" : "Apply discount"}
         </button>`;
     }
 
-    bindSliderEvents(root) {
+    renderWidgetHtml() {
+      const d = this.data;
+      if (!d) return "";
+
+      const discountHint = d.isMember
+        ? `≈ ${this.fmtMoney(this.dollarValue(Math.min(d.balance, d.maxPoints || d.balance)))} off`
+        : "Earn on every order";
+
+      const toggleLabel = d.isMember
+        ? `<strong>${this.fmt(d.balance)} pts</strong> <span class="anka-cart-muted">${discountHint}</span>`
+        : `<span class="anka-cart-muted">Rewards members save at checkout</span>`;
+
+      const action = this.canRedeem()
+        ? this.expanded
+          ? "Close"
+          : "Redeem"
+        : d.isMember
+          ? ""
+          : "Join";
+
+      return `
+        <div class="anka-cart-inline-drawer">
+          <button type="button" class="anka-cart-redeem-toggle" aria-expanded="${this.expanded}">
+            <span class="anka-cart-redeem-icon" aria-hidden="true">★</span>
+            <span class="anka-cart-redeem-copy">${toggleLabel}</span>
+            ${action ? `<span class="anka-cart-redeem-action">${action}</span>` : ""}
+          </button>
+          ${
+            this.expanded
+              ? `<div class="anka-cart-redeem-panel">${this.renderPanelContent()}</div>`
+              : ""
+          }
+        </div>`;
+    }
+
+    bindEvents(root) {
+      root.querySelector(".anka-cart-redeem-toggle")?.addEventListener("click", () => {
+        if (!this.data?.isMember) return;
+        if (!this.canRedeem() && !this.expanded) return;
+        this.expanded = !this.expanded;
+        this.renderKey = "";
+        this.render();
+      });
+
       root.querySelector(".anka-cart-range")?.addEventListener("input", (e) => {
         this.points = Number(e.target.value);
         this.error = null;
+        this.renderKey = "";
         this.render();
       });
 
@@ -236,82 +233,45 @@
         e.stopPropagation();
         this.apply();
       });
-
-      root.querySelector("[data-anka-cart-close]")?.addEventListener("click", (e) => {
-        e.stopPropagation();
-        this.popoverOpen = false;
-        this.render();
-      });
-
-      root.querySelector(".anka-cart-tab")?.addEventListener("click", (e) => {
-        e.stopPropagation();
-        this.popoverOpen = !this.popoverOpen;
-        this.render();
-      });
     }
 
-    renderDock() {
-      if (!this.dock || !this.data?.enabled) return;
+    mountDrawerWidget(drawer) {
+      const footer = this.findDrawerFooter(drawer);
+      if (!footer) return;
 
-      const d = this.data;
+      if (this.drawerRoot && !this.drawerRoot.isConnected) {
+        this.drawerRoot = null;
+      }
+
+      if (!this.drawerRoot) {
+        this.drawerRoot = document.createElement("div");
+        this.drawerRoot.className = "anka-cart-drawer-root";
+        footer.prepend(this.drawerRoot);
+      } else if (this.drawerRoot.parentElement !== footer) {
+        footer.prepend(this.drawerRoot);
+      }
+
+      this.applyTheme(this.drawerRoot);
+
       const key = [
-        this.drawerOpen,
-        this.popoverOpen,
+        "drawer",
+        this.expanded,
         this.points,
         this.loading,
         this.message,
         this.error,
-        d.balance,
+        this.data?.balance,
       ].join("|");
-
-      this.dock.classList.toggle("is-visible", this.drawerOpen);
-
-      if (!this.drawerOpen) {
-        if (this.renderKey !== key) {
-          this.dock.innerHTML = "";
-          this.renderKey = key;
-        }
-        return;
-      }
 
       if (this.renderKey === key) return;
       this.renderKey = key;
-      this.applyTheme(this.dock);
 
-      const tabPts = d.isMember ? this.fmt(d.balance) : "★";
-      const popoverClass = this.popoverOpen ? " is-open" : "";
-
-      this.dock.innerHTML = `
-        <div class="anka-cart-dock-inner">
-          <button type="button" class="anka-cart-tab" aria-expanded="${this.popoverOpen}" aria-label="Redeem loyalty points">
-            <span class="anka-cart-tab-icon">★</span>
-            <span class="anka-cart-tab-label">${tabPts}</span>
-          </button>
-          <div class="anka-cart-popover${popoverClass}" role="dialog" aria-label="Redeem points">
-            <button type="button" class="anka-cart-popover-close" data-anka-cart-close aria-label="Close">×</button>
-            ${this.renderSliderContent(true)}
-          </div>
-        </div>`;
-
-      this.bindSliderEvents(this.dock);
+      this.drawerRoot.innerHTML = this.renderWidgetHtml();
+      this.bindEvents(this.drawerRoot);
     }
 
-    renderInline() {
-      if (!this.data?.enabled || this.drawerOpen) {
-        if (this.inlineRoot) {
-          this.inlineRoot.remove();
-          this.inlineRoot = null;
-        }
-        return;
-      }
-
-      if (!window.location.pathname.includes("/cart")) {
-        if (this.inlineRoot) {
-          this.inlineRoot.remove();
-          this.inlineRoot = null;
-        }
-        return;
-      }
+    mountPageWidget() {
+      if (this.drawerOpen) return;
 
       let mount = null;
       for (const sel of INLINE_MOUNT_SELECTORS) {
@@ -322,32 +282,44 @@
 
       if (!this.inlineRoot) {
         this.inlineRoot = document.createElement("div");
-        this.inlineRoot.className = "anka-cart-inline-root";
+        this.inlineRoot.className = "anka-cart-page-root";
         mount.prepend(this.inlineRoot);
       }
 
       this.applyTheme(this.inlineRoot);
-      this.inlineRoot.innerHTML = `
-        <div class="anka-cart-inline">${this.renderSliderContent(false)}</div>`;
-      this.bindSliderEvents(this.inlineRoot);
+
+      const key = [
+        "page",
+        this.expanded,
+        this.points,
+        this.loading,
+        this.message,
+        this.error,
+        this.data?.balance,
+      ].join("|");
+
+      if (this.renderKey === key && this.inlineRoot.innerHTML) return;
+      this.renderKey = key;
+
+      this.inlineRoot.innerHTML = this.renderWidgetHtml();
+      this.bindEvents(this.inlineRoot);
     }
 
     render() {
       if (!this.data?.enabled) return;
-      this.renderDock();
-      this.renderInline();
+
+      if (this.drawerOpen) {
+        const drawer = this.findCartDrawer();
+        if (drawer) this.mountDrawerWidget(drawer);
+      } else if (window.location.pathname.includes("/cart")) {
+        this.mountPageWidget();
+      }
     }
 
     sync() {
       const drawer = this.findCartDrawer();
       const open = this.isDrawerOpen(drawer);
       this.setDrawerOpenState(open);
-
-      if (open && drawer) {
-        this.ensureDock();
-        this.positionDock(drawer);
-      }
-
       this.render();
     }
 
@@ -376,8 +348,6 @@
         });
         if (!err.ok) throw new Error("Could not apply discount to cart.");
       }
-
-      document.dispatchEvent(new CustomEvent("anka:cart:updated"));
       window.location.reload();
     }
 
@@ -399,7 +369,7 @@
         const data = await res.json();
         if (!data.ok) throw new Error(data.error || "Redeem failed");
 
-        this.popoverOpen = false;
+        this.expanded = false;
         await this.applyDiscountToCart(data.code);
       } catch (err) {
         this.error = err instanceof Error ? err.message : "Error";
@@ -422,24 +392,11 @@
         this.sync();
         this.watchDrawer();
 
-        document.addEventListener("cart:open", () => this.scheduleSync());
-        document.addEventListener("drawerOpen", () => this.scheduleSync());
-
-        window.addEventListener("resize", () => {
-          if (this.drawerOpen) this.scheduleSync();
+        document.addEventListener("cart:open", () => {
+          this.scheduleSync();
+          setTimeout(() => this.scheduleSync(), 120);
         });
-
-        document.addEventListener(
-          "click",
-          (e) => {
-            if (!this.popoverOpen || !this.dock) return;
-            if (e.target instanceof Node && this.dock.contains(e.target)) return;
-            this.popoverOpen = false;
-            this.renderKey = "";
-            this.render();
-          },
-          true,
-        );
+        document.addEventListener("drawerOpen", () => this.scheduleSync());
       } catch (err) {
         console.error("[anka-cart-slider]", err);
       }

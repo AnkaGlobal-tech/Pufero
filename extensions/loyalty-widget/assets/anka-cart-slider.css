@@ -1,144 +1,94 @@
-/* Cart drawer dock — tab + popover (mounted inside cart-drawer when open) */
-.anka-cart-dock {
+/* Integrated cart redeem — lives inside cart drawer footer / cart page */
+
+.anka-cart-drawer-root,
+.anka-cart-page-root {
   --anka-primary: #c9a84c;
   --anka-bg: #0f1b2d;
-  --anka-text: #f7f5f0;
-  --anka-surface: #121c2e;
-  --anka-muted: rgba(247, 245, 240, 0.58);
-  --anka-border: rgba(255, 255, 255, 0.12);
-  position: fixed;
-  z-index: 100000;
-  pointer-events: none;
-  opacity: 0;
-  visibility: hidden;
-  transition: opacity 0.2s ease, visibility 0.2s ease;
-  font-family: Inter, system-ui, sans-serif;
+  --anka-text: #1a1a1a;
+  --anka-surface: #f7f7f7;
+  --anka-muted: rgba(0, 0, 0, 0.55);
+  --anka-border: rgba(0, 0, 0, 0.1);
+  font-family: inherit;
 }
 
-/* Dock always lives on body — never injected into cart-drawer */
-.anka-cart-dock.is-in-drawer {
-  position: fixed;
-}
-
-.anka-cart-dock.is-visible {
-  opacity: 1;
-  visibility: visible;
-  pointer-events: auto;
-}
-
-.anka-cart-dock * {
+.anka-cart-drawer-root *,
+.anka-cart-page-root * {
   box-sizing: border-box;
 }
 
-.anka-cart-dock-inner {
-  position: relative;
-  display: flex;
-  align-items: flex-start;
+.anka-cart-inline-drawer {
+  margin: 0 0 12px;
+  border-radius: 10px;
+  border: 1px solid var(--anka-border);
+  background: var(--anka-surface);
+  overflow: hidden;
 }
 
-.anka-cart-tab {
+.anka-cart-redeem-toggle {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 14px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--anka-text);
+}
+
+.anka-cart-redeem-toggle:hover {
+  background: color-mix(in srgb, var(--anka-primary) 6%, transparent);
+}
+
+.anka-cart-redeem-icon {
+  flex-shrink: 0;
+  display: flex;
   align-items: center;
   justify-content: center;
-  gap: 2px;
-  width: 46px;
-  min-height: 74px;
-  padding: 10px 6px;
-  border: 1px solid color-mix(in srgb, var(--anka-primary) 60%, #000);
-  border-radius: 12px;
-  background: var(--anka-primary);
-  color: #111;
-  cursor: pointer;
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.22);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--anka-primary) 18%, transparent);
+  color: color-mix(in srgb, var(--anka-primary) 85%, #000);
+  font-size: 13px;
 }
 
-.anka-cart-tab:hover {
-  transform: scale(1.04);
+.anka-cart-redeem-copy {
+  flex: 1;
+  min-width: 0;
 }
 
-.anka-cart-tab-icon {
-  font-size: 14px;
-  line-height: 1;
+.anka-cart-redeem-copy strong {
+  font-weight: 600;
 }
 
-.anka-cart-tab-label {
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 1.1;
-  max-width: 38px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Popover opens to the left of the tab (into the backdrop, not over cart) */
-.anka-cart-popover {
-  position: absolute;
-  right: calc(100% + 10px);
-  left: auto;
-  top: 0;
-  width: 220px;
-  padding: 12px 14px 14px;
-  border-radius: 12px;
-  background: var(--anka-surface);
-  border: 1px solid var(--anka-border);
-  color: var(--anka-text);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.28);
-  opacity: 0;
-  visibility: hidden;
-  transform: translateX(8px);
-  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s ease;
-  pointer-events: none;
-}
-
-.anka-cart-popover.is-open {
-  opacity: 1;
-  visibility: visible;
-  transform: translateX(0);
-  pointer-events: auto;
-}
-
-.anka-cart-popover-close {
-  position: absolute;
-  top: 6px;
-  right: 8px;
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--anka-muted);
-  font-size: 18px;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.anka-cart-popover-close:hover {
-  background: color-mix(in srgb, var(--anka-text) 8%, transparent);
-  color: var(--anka-text);
-}
-
-.anka-cart-popover-title {
-  margin: 0 24px 8px 0;
+.anka-cart-redeem-action {
+  flex-shrink: 0;
   font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  color: var(--anka-muted);
+  font-weight: 600;
+  color: color-mix(in srgb, var(--anka-primary) 80%, #000);
+}
+
+.anka-cart-redeem-panel {
+  padding: 0 14px 14px;
+  border-top: 1px solid var(--anka-border);
+  animation: anka-cart-panel-in 0.2s ease;
 }
 
 .anka-cart-popover-row {
   display: flex;
   align-items: baseline;
   gap: 8px;
-  margin-bottom: 10px;
+  margin: 12px 0 8px;
 }
 
 .anka-cart-popover-row strong {
-  font-size: 18px;
-  font-weight: 700;
+  font-size: 16px;
+  font-weight: 600;
 }
 
 .anka-cart-muted {
@@ -149,13 +99,14 @@
 }
 
 .anka-cart-muted a {
-  color: var(--anka-primary);
+  color: color-mix(in srgb, var(--anka-primary) 80%, #000);
+  font-weight: 500;
 }
 
 .anka-cart-range {
   width: 100%;
   accent-color: var(--anka-primary);
-  margin: 2px 0 6px;
+  margin: 4px 0 6px;
   height: 4px;
 }
 
@@ -169,31 +120,31 @@
 
 .anka-cart-apply {
   width: 100%;
-  padding: 8px 12px;
+  padding: 9px 12px;
   border: none;
   border-radius: 8px;
   background: var(--anka-primary);
   color: #111;
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
   transition: opacity 0.15s;
 }
 
 .anka-cart-apply:hover:not(:disabled) {
-  opacity: 0.92;
+  opacity: 0.9;
 }
 
 .anka-cart-apply:disabled {
-  opacity: 0.5;
+  opacity: 0.55;
   cursor: not-allowed;
 }
 
 .anka-cart-success {
   padding: 6px 8px;
   border-radius: 6px;
-  background: rgba(45, 155, 110, 0.15);
-  color: #7ddeb8;
+  background: rgba(45, 155, 110, 0.12);
+  color: #1a7a52;
   font-size: 11px;
   margin-bottom: 8px;
 }
@@ -201,49 +152,38 @@
 .anka-cart-error {
   padding: 6px 8px;
   border-radius: 6px;
-  background: rgba(220, 38, 38, 0.12);
-  color: #fca5a5;
+  background: rgba(220, 38, 38, 0.08);
+  color: #b91c1c;
   font-size: 11px;
   margin-bottom: 8px;
 }
 
-.anka-cart-inline-root {
-  margin: 0 0 16px;
-  max-width: 320px;
+.anka-cart-page-root {
+  max-width: 420px;
+  margin: 0 0 20px;
 }
 
-.anka-cart-inline {
-  padding: 14px 16px;
-  border-radius: 12px;
-  background: var(--anka-surface);
-  border: 1px solid var(--anka-border);
-  color: var(--anka-text);
-  font-family: Inter, system-ui, sans-serif;
+@keyframes anka-cart-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.anka-cart-inline .anka-cart-popover-title {
-  margin-bottom: 6px;
-}
-
-.anka-cart-inline .anka-cart-apply {
-  margin-top: 4px;
-}
-
+/* Hide rewards launcher while cart drawer is open */
 body.anka-cart-drawer-open .anka-root .anka-launcher-wrap {
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
-  transform: scale(0.92) translateY(8px);
+  transform: scale(0.96) translateY(6px);
   transition: opacity 0.2s ease, visibility 0.2s ease, transform 0.2s ease;
 }
 
 body.anka-cart-drawer-open .anka-root .anka-panel,
 body.anka-cart-drawer-open .anka-root .anka-backdrop {
   display: none !important;
-}
-
-@media (max-width: 749px) {
-  .anka-cart-popover {
-    width: min(210px, calc(100vw - 100px));
-  }
 }
