@@ -11,13 +11,14 @@ import {
   Box,
   InlineStack,
   ProgressBar,
-  EmptyState,
   Banner,
 } from "@shopify/polaris";
 import { TitleBar } from "@shopify/app-bridge-react";
 
 import { authenticate } from "../shopify.server";
-import { getStoreByDomain } from "../lib/store.server";
+import { getOrEnsureStoreByDomain } from "../lib/store.server";
+import { BRAND_DISPLAY_NAME } from "../lib/brand";
+import { captureException } from "../lib/sentry.server";
 import {
   getDashboardStats,
   getRecentActivity,
@@ -31,34 +32,42 @@ import { processPointsExpiry } from "../lib/expiry-engine.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { admin, session } = await authenticate.admin(request);
-  const store = await getStoreByDomain(session.shop);
+  const store = await getOrEnsureStoreByDomain(session.shop);
 
-  if (!store) {
-    return {
+  try {
+    await syncPendingDraftOrders({ admin, store, limit: 25 });
+    await processBirthdayBonuses(store.id);
+    await processPointsExpiry(store.id);
+    await backfillMissingTiers({
+      storeId: store.id,
+      shopDomain: store.shop_domain,
+      limit: 50,
+    });
+  } catch (error) {
+    captureException(error, {
+      scope: "dashboard.sideEffects",
       shop: session.shop,
-      missingStore: true,
-      stats: null,
-      activity: [] as ActivityItem[],
-    };
+    });
   }
 
-  await syncPendingDraftOrders({ admin, store, limit: 25 });
-  await processBirthdayBonuses(store.id);
-  await processPointsExpiry(store.id);
-  await backfillMissingTiers({
-    storeId: store.id,
-    shopDomain: store.shop_domain,
-    limit: 50,
-  });
+  let stats: DashboardStats | null = null;
+  let activity: ActivityItem[] = [];
 
-  const [stats, activity] = await Promise.all([
-    getDashboardStats(store.id),
-    getRecentActivity(store.id, 10),
-  ]);
+  try {
+    [stats, activity] = await Promise.all([
+      getDashboardStats(store.id),
+      getRecentActivity(store.id, 10),
+    ]);
+  } catch (error) {
+    captureException(error, {
+      scope: "dashboard.stats",
+      shop: session.shop,
+    });
+  }
 
   return {
     shop: session.shop,
-    missingStore: false,
+    brandName: BRAND_DISPLAY_NAME,
     storeName: store.name,
     programPaused: store.program_paused,
     stats,
@@ -204,21 +213,18 @@ function RecentActivity({ activity }: { activity: ActivityItem[] }) {
 export default function Dashboard() {
   const data = useLoaderData<typeof loader>();
 
-  if (data.missingStore || !data.stats) {
+  if (!data.stats) {
     return (
       <Page>
-        <TitleBar title="Anka Loyalty" />
-        <Card>
-          <EmptyState
-            heading="Store record not found"
-            image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
-          >
+        <TitleBar title={data.brandName} />
+        <BlockStack gap="400">
+          <Banner tone="warning" title="Dashboard could not load">
             <p>
-              There is no Anka Loyalty record for this store yet. Try reinstalling
-              the app.
+              Your store is connected, but stats could not be loaded right now.
+              Refresh the page or try again in a moment.
             </p>
-          </EmptyState>
-        </Card>
+          </Banner>
+        </BlockStack>
       </Page>
     );
   }
@@ -227,7 +233,7 @@ export default function Dashboard() {
 
   return (
     <Page title="Dashboard" subtitle={storeName ?? data.shop}>
-      <TitleBar title="Anka Loyalty" />
+      <TitleBar title={data.brandName} />
       <BlockStack gap="400">
         {programPaused ? (
           <Banner tone="warning" title="Program paused">

@@ -22,7 +22,7 @@ import {
 import { TitleBar, useAppBridge } from "@shopify/app-bridge-react";
 
 import { authenticate } from "../shopify.server";
-import { getStoreByDomain } from "../lib/store.server";
+import { getOrEnsureStoreByDomain } from "../lib/store.server";
 import {
   exportLedgerCsv,
   getJudgeMeSettings,
@@ -74,11 +74,7 @@ const fmtPct = new Intl.NumberFormat("en-US", {
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
-  const store = await getStoreByDomain(session.shop);
-
-  if (!store) {
-    return json({ missingStore: true as const });
-  }
+  const store = await getOrEnsureStoreByDomain(session.shop);
 
   const url = new URL(request.url);
   const { year, month } = parseYearMonth(
@@ -112,7 +108,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const roi = await getRoiMetrics(store.id, report);
 
   return json({
-    missingStore: false as const,
     year,
     month,
     report,
@@ -125,10 +120,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { session } = await authenticate.admin(request);
-  const store = await getStoreByDomain(session.shop);
-  if (!store) {
-    return json({ ok: false, error: "Store not found" });
-  }
+  const store = await getOrEnsureStoreByDomain(session.shop);
 
   const form = await request.formData();
   const intent = String(form.get("intent") ?? "");
@@ -562,15 +554,6 @@ export default function ReportsPage() {
   const data = useLoaderData<typeof loader>();
   const [searchParams, setSearchParams] = useSearchParams();
   const tab = Number.parseInt(searchParams.get("tab") ?? "0", 10) || 0;
-
-  if (data.missingStore) {
-    return (
-      <Page>
-        <TitleBar title="Reports" />
-        <Banner tone="warning">Store record not found. Reinstall the app.</Banner>
-      </Page>
-    );
-  }
 
   const tabs = [
     { id: "performance", content: "Performance" },

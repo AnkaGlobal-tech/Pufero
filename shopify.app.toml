@@ -1,8 +1,8 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
-client_id = "5704acdc5b919866c7e0326332666fd4"
-name = "Anka Loyalty"
-application_url = "https://anka-loyalty-production.up.railway.app"
+client_id = "32304122c5ca8e4fef4e1ac9345de890"
+name = "Pufero Loyalty"
+application_url = "https://pufero-loyalty-production-9b87.up.railway.app"
 embedded = true
 
 [build]
@@ -68,13 +68,13 @@ api_version = "2026-07"
 scopes = "write_products,read_products,read_orders,read_draft_orders,read_customers,write_customers,write_discounts"
 
 [app_proxy]
-url = "https://anka-loyalty-production.up.railway.app/apps/loyalty"
+url = "https://pufero-loyalty-production-9b87.up.railway.app/apps/loyalty"
 subpath = "loyalty"
 prefix = "apps"
 
 [auth]
 redirect_urls = [
-  "https://anka-loyalty-production.up.railway.app/auth/callback",
-  "https://anka-loyalty-production.up.railway.app/auth/shopify/callback",
-  "https://anka-loyalty-production.up.railway.app/api/auth/callback"
+  "https://pufero-loyalty-production-9b87.up.railway.app/auth/callback",
+  "https://pufero-loyalty-production-9b87.up.railway.app/auth/shopify/callback",
+  "https://pufero-loyalty-production-9b87.up.railway.app/api/auth/callback"
 ]

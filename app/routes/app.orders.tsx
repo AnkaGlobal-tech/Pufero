@@ -15,7 +15,7 @@ import {
 import { TitleBar, useAppBridge } from "@shopify/app-bridge-react";
 
 import { authenticate } from "../shopify.server";
-import { getStoreByDomain } from "../lib/store.server";
+import { getOrEnsureStoreByDomain } from "../lib/store.server";
 import {
   awardDraftOrderPoints,
   awardOrderPoints,
@@ -28,11 +28,7 @@ import {
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { admin, session } = await authenticate.admin(request);
-  const store = await getStoreByDomain(session.shop);
-
-  if (!store) {
-    return { missingStore: true as const };
-  }
+  const store = await getOrEnsureStoreByDomain(session.shop);
 
   await syncPendingDraftOrders({ admin, store, limit: 25 });
 
@@ -41,16 +37,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     fetchDraftOrders({ admin, storeId: store.id, limit: 15 }),
   ]);
 
-  return { missingStore: false as const, orders, drafts };
+  return { orders, drafts };
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { admin, session } = await authenticate.admin(request);
-  const store = await getStoreByDomain(session.shop);
-
-  if (!store) {
-    return { ok: false as const, error: "Store not found." };
-  }
+  const store = await getOrEnsureStoreByDomain(session.shop);
 
   const form = await request.formData();
   const draftId = Number(form.get("draft_id"));
@@ -371,15 +363,6 @@ export default function OrdersPage() {
       shopify.toast.show(actionData.error, { isError: true });
     }
   }, [actionData, navigation.state, shopify]);
-
-  if (data.missingStore) {
-    return (
-      <Page title="Orders">
-        <TitleBar title="Orders" />
-        <Banner tone="critical" title="Store record not found" />
-      </Page>
-    );
-  }
 
   const { orders, drafts } = data;
 

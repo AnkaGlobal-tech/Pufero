@@ -19,7 +19,7 @@ import {
 import { TitleBar } from "@shopify/app-bridge-react";
 
 import { authenticate } from "../shopify.server";
-import { getStoreByDomain } from "../lib/store.server";
+import { getOrEnsureStoreByDomain } from "../lib/store.server";
 import { listStoreCustomers } from "../lib/customers.server";
 import { listStoreTiers } from "../lib/tier-engine.server";
 
@@ -38,15 +38,7 @@ interface CustomerRow {
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
-  const store = await getStoreByDomain(session.shop);
-
-  if (!store) {
-    return {
-      customers: [] as CustomerRow[],
-      tiers: [] as { slug: string; name: string }[],
-      filters: { tier: "", negative: false },
-    };
-  }
+  const store = await getOrEnsureStoreByDomain(session.shop);
 
   const url = new URL(request.url);
   const tierSlug = url.searchParams.get("tier")?.trim() || "";

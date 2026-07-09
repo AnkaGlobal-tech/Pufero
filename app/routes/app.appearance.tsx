@@ -19,7 +19,7 @@ import {
 import { TitleBar, useAppBridge } from "@shopify/app-bridge-react";
 
 import { authenticate } from "../shopify.server";
-import { getStoreByDomain } from "../lib/store.server";
+import { getOrEnsureStoreByDomain } from "../lib/store.server";
 import {
   getWidgetSettingsForStore,
   updateWidgetSettings,
@@ -56,11 +56,7 @@ function mergedLocaleCopy(
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session, admin } = await authenticate.admin(request);
-  const store = await getStoreByDomain(session.shop);
-
-  if (!store) {
-    return { missingStore: true as const };
-  }
+  const store = await getOrEnsureStoreByDomain(session.shop);
 
   const [settings, shopLocales] = await Promise.all([
     getWidgetSettingsForStore(store.id),
@@ -74,7 +70,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   };
 
   return {
-    missingStore: false as const,
     settings: settingsWithDefault,
     shopLocales,
     primaryLocale: primary,
@@ -83,10 +78,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { session } = await authenticate.admin(request);
-  const store = await getStoreByDomain(session.shop);
-  if (!store) {
-    return { ok: false, error: "Store not found" };
-  }
+  const store = await getOrEnsureStoreByDomain(session.shop);
 
   const form = await request.formData();
   try {
@@ -514,17 +506,6 @@ export default function AppearancePage() {
       shopify.toast.show("Appearance settings saved");
     }
   }, [actionData, shopify]);
-
-  if (data.missingStore) {
-    return (
-      <Page title="Appearance">
-        <TitleBar title="Appearance" />
-        <Banner tone="warning">
-          Store record not found. Reload the app.
-        </Banner>
-      </Page>
-    );
-  }
 
   return (
     <Page

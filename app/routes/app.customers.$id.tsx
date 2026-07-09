@@ -26,7 +26,7 @@ import {
 import { TitleBar, useAppBridge } from "@shopify/app-bridge-react";
 
 import { authenticate } from "../shopify.server";
-import { getStoreByDomain } from "../lib/store.server";
+import { getOrEnsureStoreByDomain } from "../lib/store.server";
 import {
   addManualPoints,
   getCustomerDetail,
@@ -45,7 +45,7 @@ import type { LedgerMovementType, LedgerSource } from "../types/loyalty";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
-  const store = await getStoreByDomain(session.shop);
+  const store = await getOrEnsureStoreByDomain(session.shop);
   const customerId = params.id;
 
   if (!store || !customerId) {
@@ -67,7 +67,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 
 export const action = async ({ request, params }: ActionFunctionArgs) => {
   const { session } = await authenticate.admin(request);
-  const store = await getStoreByDomain(session.shop);
+  const store = await getOrEnsureStoreByDomain(session.shop);
   const customerId = params.id;
 
   if (!store || !customerId) {

@@ -98,6 +98,17 @@ export async function deactivateStoreOnUninstall(params: {
   }
 }
 
+/** Admin loaders: return existing store or provision on first access (install race fallback). */
+export async function getOrEnsureStoreByDomain(
+  shopDomain: string,
+): Promise<StoreRecord> {
+  const existing = await getStoreByDomain(shopDomain);
+  if (existing) {
+    return existing;
+  }
+  return upsertStoreOnInstall({ shopDomain });
+}
+
 export async function getStoreByDomain(
   shopDomain: string,
 ): Promise<StoreRecord | null> {

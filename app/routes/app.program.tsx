@@ -19,7 +19,7 @@ import {
 import { TitleBar, useAppBridge } from "@shopify/app-bridge-react";
 
 import { authenticate } from "../shopify.server";
-import { getStoreByDomain } from "../lib/store.server";
+import { getOrEnsureStoreByDomain } from "../lib/store.server";
 import {
   getProgramData,
   updateRedemptions,
@@ -45,22 +45,14 @@ import { buildCampaignAnnouncementText } from "../lib/campaign-announcement";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
-  const store = await getStoreByDomain(session.shop);
-
-  if (!store) {
-    return { missingStore: true as const };
-  }
-
+  const store = await getOrEnsureStoreByDomain(session.shop);
   const program = await getProgramData(store.id);
-  return { missingStore: false as const, ...program };
+  return program;
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { session } = await authenticate.admin(request);
-  const store = await getStoreByDomain(session.shop);
-  if (!store) {
-    return { ok: false, error: "Store not found" };
-  }
+  const store = await getOrEnsureStoreByDomain(session.shop);
 
   const form = await request.formData();
   const intent = String(form.get("intent"));
@@ -761,17 +753,6 @@ export default function Program() {
       shopify.toast.show(actionData.error, { isError: true });
     }
   }, [actionData, navigation.state, shopify]);
-
-  if (data.missingStore) {
-    return (
-      <Page title="Program">
-        <TitleBar title="Program" />
-        <Banner tone="critical" title="Store record not found">
-          <p>Try reinstalling the app.</p>
-        </Banner>
-      </Page>
-    );
-  }
 
   return (
     <Page title="Program">

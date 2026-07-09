@@ -19,7 +19,7 @@ import {
 import { TitleBar } from "@shopify/app-bridge-react";
 
 import { authenticate } from "../shopify.server";
-import { getStoreByDomain } from "../lib/store.server";
+import { getOrEnsureStoreByDomain } from "../lib/store.server";
 import {
   loadKlaviyoSettings,
   saveKlaviyoSettings,
@@ -41,11 +41,7 @@ const FLOW_GUIDE = KLAVIYO_FLOW_GUIDE;
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
-  const store = await getStoreByDomain(session.shop);
-
-  if (!store) {
-    return json({ missingStore: true as const });
-  }
+  const store = await getOrEnsureStoreByDomain(session.shop);
 
   const settings = await loadKlaviyoSettings(store.id);
   const [pending, recentStats] = await Promise.all([
@@ -58,7 +54,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   }
 
   return json({
-    missingStore: false as const,
     connected: Boolean(settings?.apiKey),
     maskedKey: settings ? maskApiKey(settings.apiKey) : null,
     connectedAt: settings?.connectedAt ?? null,
@@ -71,10 +66,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { admin, session } = await authenticate.admin(request);
-  const store = await getStoreByDomain(session.shop);
-  if (!store) {
-    return json({ ok: false, error: "Store not found." });
-  }
+  const store = await getOrEnsureStoreByDomain(session.shop);
 
   const form = await request.formData();
   const intent = String(form.get("intent") ?? "");
@@ -141,15 +133,6 @@ export default function KlaviyoPage() {
   const navigation = useNavigation();
   const [apiKey, setApiKey] = useState("");
   const busy = navigation.state !== "idle";
-
-  if (data.missingStore) {
-    return (
-      <Page>
-        <TitleBar title="Klaviyo" />
-        <Banner tone="warning">Store record not found.</Banner>
-      </Page>
-    );
-  }
 
   return (
     <Page title="Klaviyo">
