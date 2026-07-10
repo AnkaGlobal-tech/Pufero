@@ -1,5 +1,5 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
-import { useLoaderData } from "@remix-run/react";
+import { Link, useLoaderData } from "@remix-run/react";
 import {
   Page,
   Layout,
@@ -29,13 +29,18 @@ import { syncPendingDraftOrders } from "../lib/orders.server";
 import { processBirthdayBonuses } from "../lib/bonus-rules.server";
 import { backfillMissingTiers } from "../lib/tier-engine.server";
 import { processPointsExpiry } from "../lib/expiry-engine.server";
+import { getPointsSetupState } from "../lib/points-setup.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { admin, session } = await authenticate.admin(request);
   const store = await getOrEnsureStoreByDomain(session.shop);
+  const setup = await getPointsSetupState(store.id);
 
   try {
-    await syncPendingDraftOrders({ admin, store, limit: 25 });
+    // Wait until rates are saved on Program so draft sync doesn't award at default 1:1 by surprise.
+    if (setup.setupCompletedAt) {
+      await syncPendingDraftOrders({ admin, store, limit: 25 });
+    }
     await processBirthdayBonuses(store.id);
     await processPointsExpiry(store.id);
     await backfillMissingTiers({
@@ -70,6 +75,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     brandName: BRAND_DISPLAY_NAME,
     storeName: store.name,
     programPaused: store.program_paused,
+    setupCompletedAt: setup.setupCompletedAt,
+    backfillCompletedAt: setup.backfillCompletedAt,
     stats,
     activity,
   };
@@ -235,6 +242,23 @@ export default function Dashboard() {
     <Page title="Dashboard" subtitle={storeName ?? data.shop}>
       <TitleBar title={data.brandName} />
       <BlockStack gap="400">
+        {!data.setupCompletedAt ? (
+          <Banner tone="warning" title="Configure points rates">
+            <p>
+              Go to <Link to="/app/program">Program</Link> to set earn/redeem
+              rates for your shop currency, then run the 60-day order import.
+              Until rates are saved, draft orders will not auto-award points.
+            </p>
+          </Banner>
+        ) : !data.backfillCompletedAt ? (
+          <Banner tone="info" title="Import historical orders">
+            <p>
+              Rates are saved. On <Link to="/app/program">Program</Link>, run
+              &quot;Import last 60 days of orders&quot; so past customers get
+              points.
+            </p>
+          </Banner>
+        ) : null}
         {programPaused ? (
           <Banner tone="warning" title="Program paused">
             <p>Point earning for new orders is currently disabled.</p>

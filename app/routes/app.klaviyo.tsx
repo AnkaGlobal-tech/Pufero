@@ -35,6 +35,7 @@ import {
   getRecentMemberStats,
   sendWelcomeCampaign,
 } from "../lib/klaviyo-backfill.server";
+import { getPointsSetupState } from "../lib/points-setup.server";
 import { KLAVIYO_METRICS, KLAVIYO_FLOW_GUIDE, KLAVIYO_PROFILE_KEYS } from "../lib/klaviyo-constants";
 
 const FLOW_GUIDE = KLAVIYO_FLOW_GUIDE;
@@ -44,9 +45,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const store = await getOrEnsureStoreByDomain(session.shop);
 
   const settings = await loadKlaviyoSettings(store.id);
-  const [pending, recentStats] = await Promise.all([
+  const [pending, recentStats, pointsSetup] = await Promise.all([
     countPendingKlaviyoEvents(store.id),
     getRecentMemberStats(store.id),
+    getPointsSetupState(store.id),
   ]);
 
   if (settings?.apiKey) {
@@ -57,7 +59,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     connected: Boolean(settings?.apiKey),
     maskedKey: settings ? maskApiKey(settings.apiKey) : null,
     connectedAt: settings?.connectedAt ?? null,
-    backfillCompletedAt: settings?.backfillCompletedAt ?? null,
+    backfillCompletedAt:
+      pointsSetup.backfillCompletedAt ?? settings?.backfillCompletedAt ?? null,
     welcomeSentAt: settings?.welcomeSentAt ?? null,
     pending,
     recentStats,
@@ -240,12 +243,13 @@ export default function KlaviyoPage() {
                 </InlineStack>
                 <Text as="p" variant="bodySm" tone="subdued">
                   Awards loyalty points for paid orders from the last 60 days
-                  (idempotent — safe to run again). Do this before the welcome
-                  campaign so balances are correct.
+                  (idempotent — safe to run again). Prefer setting rates on{" "}
+                  <strong>Program</strong> first. No Klaviyo connection needed
+                  for this step.
                 </Text>
                 <Form method="post">
                   <input type="hidden" name="intent" value="backfill_orders" />
-                  <Button submit loading={busy} disabled={!data.connected}>
+                  <Button submit loading={busy}>
                     Run 60-day order backfill
                   </Button>
                 </Form>

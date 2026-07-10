@@ -42,16 +42,37 @@ import type {
 } from "../lib/program.server";
 import { RULE_LABELS, REWARD_TYPE_LABELS } from "../lib/program-labels";
 import { buildCampaignAnnouncementText } from "../lib/campaign-announcement";
+import {
+  currencyUnitLabel,
+  getShopCurrencyCode,
+} from "../lib/shop-currency.server";
+import {
+  getPointsSetupState,
+  markPointsSetupCompleted,
+  recalculatePurchasePointsForRate,
+} from "../lib/points-setup.server";
+import { backfillRecentOrders } from "../lib/klaviyo-backfill.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
+  const { admin, session } = await authenticate.admin(request);
   const store = await getOrEnsureStoreByDomain(session.shop);
-  const program = await getProgramData(store.id);
-  return program;
+  const [program, currencyCode, setup] = await Promise.all([
+    getProgramData(store.id),
+    getShopCurrencyCode(admin),
+    getPointsSetupState(store.id),
+  ]);
+
+  return {
+    ...program,
+    currencyCode,
+    currencyLabel: currencyUnitLabel(currencyCode),
+    setupCompletedAt: setup.setupCompletedAt,
+    backfillCompletedAt: setup.backfillCompletedAt,
+  };
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
+  const { admin, session } = await authenticate.admin(request);
   const store = await getOrEnsureStoreByDomain(session.shop);
 
   const form = await request.formData();
@@ -59,9 +80,31 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   try {
   switch (intent) {
-    case "store_points":
+    case "store_points": {
       await updateStorePoints(store.id, form);
+      const currencyCode = await getShopCurrencyCode(admin);
+      await markPointsSetupCompleted({
+        storeId: store.id,
+        shopCurrency: currencyCode,
+      });
+
+      if (form.get("recalculate_existing") === "on") {
+        const newRate = Math.max(
+          0,
+          parseFloat(String(form.get("points_per_dollar") ?? "1")) || 0,
+        );
+        const recalc = await recalculatePurchasePointsForRate({
+          storeId: store.id,
+          newPointsPerUnit: newRate,
+        });
+        return { ok: true, intent, recalc };
+      }
       break;
+    }
+    case "backfill_orders": {
+      const result = await backfillRecentOrders({ admin, store, days: 60 });
+      return { ok: true, intent, result };
+    }
     case "rules":
       await updateRules(store.id, form);
       break;
@@ -102,7 +145,15 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   return { ok: true, intent };
 };
 
-function PointsRateSection({ store }: { store: StorePointsSettings }) {
+function PointsRateSection({
+  store,
+  currencyCode,
+  currencyLabel,
+}: {
+  store: StorePointsSettings;
+  currencyCode: string;
+  currencyLabel: string;
+}) {
   const [perDollar, setPerDollar] = useState(String(store.points_per_dollar));
   const [ratio, setRatio] = useState(String(store.points_to_dollar_ratio));
   const [expiry, setExpiry] = useState(
@@ -110,6 +161,7 @@ function PointsRateSection({ store }: { store: StorePointsSettings }) {
       ? String(store.points_expiry_months)
       : "off",
   );
+  const [recalculate, setRecalculate] = useState(false);
 
   return (
     <Form method="post">
@@ -118,38 +170,41 @@ function PointsRateSection({ store }: { store: StorePointsSettings }) {
         <BlockStack gap="400">
           <BlockStack gap="100">
             <Text as="h2" variant="headingMd">
-              Points Rate & Expiry
+              Points rate & currency
             </Text>
             <Text as="p" variant="bodySm" tone="subdued">
-              Points earned on purchase and spent at checkout.
-              Expiry: points expire after last activity (Dashboard cron).
+              Shop currency is <strong>{currencyCode}</strong>. Earn and redeem
+              rates use this currency (order subtotals are already in shop
+              money — e.g. TL for Turkish stores, not USD).
             </Text>
           </BlockStack>
           <InlineStack gap="400" wrap>
-            <Box minWidth="220px">
+            <Box minWidth="240px">
               <TextField
-                label="Earn: $1 = how many points"
+                label={`Earn: 1 ${currencyLabel} = how many points`}
                 type="number"
                 name="points_per_dollar"
                 value={perDollar}
                 onChange={setPerDollar}
                 autoComplete="off"
-                suffix="pts / $"
+                suffix={`pts / ${currencyLabel}`}
                 min={0}
                 step={0.1}
+                helpText={`Example: 1 → 100 ${currencyLabel} order = 100 points`}
               />
             </Box>
-            <Box minWidth="220px">
+            <Box minWidth="240px">
               <TextField
-                label="Redeem: how many points = $1"
+                label={`Redeem: how many points = 1 ${currencyLabel}`}
                 type="number"
                 name="points_to_dollar_ratio"
                 value={ratio}
                 onChange={setRatio}
                 autoComplete="off"
-                suffix="pts / $"
+                suffix={`pts / ${currencyLabel}`}
                 min={1}
                 step={1}
+                helpText={`Example: 100 → 100 points = 1 ${currencyLabel} discount`}
               />
             </Box>
             <Box minWidth="220px">
@@ -167,14 +222,54 @@ function PointsRateSection({ store }: { store: StorePointsSettings }) {
               />
             </Box>
           </InlineStack>
+          <Checkbox
+            label="Recalculate existing purchase points with this earn rate"
+            helpText="Adjusts past order/draft purchase points to the new rate. Fixed bonuses (first order, bulk, etc.) stay the same."
+            checked={recalculate}
+            onChange={setRecalculate}
+            name="recalculate_existing"
+          />
+          {recalculate ? (
+            <input type="hidden" name="recalculate_existing" value="on" />
+          ) : null}
           <InlineStack align="end">
             <Button submit variant="primary">
-              Save
+              Save rates
             </Button>
           </InlineStack>
         </BlockStack>
       </Card>
     </Form>
+  );
+}
+
+function HistoricalImportSection({
+  backfillCompletedAt,
+}: {
+  backfillCompletedAt: string | null;
+}) {
+  return (
+    <Card>
+      <BlockStack gap="300">
+        <InlineStack align="space-between" blockAlign="center">
+          <Text as="h2" variant="headingMd">
+            Import last 60 days of orders
+          </Text>
+          {backfillCompletedAt ? <Badge tone="success">Done</Badge> : null}
+        </InlineStack>
+        <Text as="p" variant="bodySm" tone="subdued">
+          Awards loyalty points for paid Shopify orders from the last 60 days
+          using your current earn rate. Safe to run again (idempotent). Set
+          rates above first, then import — no Klaviyo required.
+        </Text>
+        <Form method="post">
+          <input type="hidden" name="intent" value="backfill_orders" />
+          <Button submit variant="primary">
+            Run 60-day order backfill
+          </Button>
+        </Form>
+      </BlockStack>
+    </Card>
   );
 }
 
@@ -747,7 +842,17 @@ export default function Program() {
 
   useEffect(() => {
     if (actionData?.ok && navigation.state === "idle") {
-      shopify.toast.show("Saved");
+      if (actionData.intent === "backfill_orders" && "result" in actionData) {
+        shopify.toast.show(
+          `Backfill: ${actionData.result.awarded} awarded / ${actionData.result.scanned} scanned`,
+        );
+      } else if (actionData.intent === "store_points" && "recalc" in actionData && actionData.recalc) {
+        shopify.toast.show(
+          `Rates saved · ${actionData.recalc.adjusted} balances adjusted`,
+        );
+      } else {
+        shopify.toast.show("Saved");
+      }
     }
     if (actionData && !actionData.ok && "error" in actionData && navigation.state === "idle") {
       shopify.toast.show(actionData.error, { isError: true });
@@ -760,7 +865,39 @@ export default function Program() {
       <Layout>
         <Layout.Section>
           <BlockStack gap="400">
-            <PointsRateSection store={data.store} />
+            {!data.setupCompletedAt ? (
+              <Banner tone="info" title="Set your points rates first">
+                <p>
+                  Choose earn/redeem rates for {data.currencyCode}, save, then
+                  run the 60-day order import below so historical customers get
+                  the correct balances.
+                </p>
+              </Banner>
+            ) : null}
+
+            {actionData?.ok &&
+            actionData.intent === "backfill_orders" &&
+            "result" in actionData ? (
+              <Banner tone="success" title="60-day order backfill complete">
+                <p>
+                  Scanned {actionData.result.scanned} · Awarded{" "}
+                  {actionData.result.awarded} · Skipped{" "}
+                  {actionData.result.skipped}
+                  {actionData.result.errors.length > 0
+                    ? ` · ${actionData.result.errors.length} errors`
+                    : ""}
+                </p>
+              </Banner>
+            ) : null}
+
+            <PointsRateSection
+              store={data.store}
+              currencyCode={data.currencyCode}
+              currencyLabel={data.currencyLabel}
+            />
+            <HistoricalImportSection
+              backfillCompletedAt={data.backfillCompletedAt}
+            />
             <RulesSection rules={data.rules} />
             <CampaignsSection campaigns={data.campaigns} />
             <ExclusionsSection exclusions={data.exclusions} />

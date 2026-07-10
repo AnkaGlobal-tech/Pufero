@@ -4,6 +4,7 @@ import type { StoreRecord } from "./store.server";
 import { getSupabaseAdmin } from "./supabase.server";
 import { awardOrderPoints } from "./orders.server";
 import { loadKlaviyoSettings, saveKlaviyoSettings } from "./klaviyo-settings.server";
+import { markOrderBackfillCompleted } from "./points-setup.server";
 import { KLAVIYO_METRICS } from "./klaviyo-constants";
 import { pushKlaviyoEventForCustomer } from "./klaviyo-sync.server";
 
@@ -116,6 +117,8 @@ export async function backfillRecentOrders(params: {
     after = connection?.pageInfo?.endCursor ?? null;
     if (!hasNextPage) break;
   }
+
+  await markOrderBackfillCompleted(params.store.id);
 
   const settings = await loadKlaviyoSettings(params.store.id);
   if (settings) {
