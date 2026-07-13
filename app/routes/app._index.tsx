@@ -1,5 +1,5 @@
-import type { LoaderFunctionArgs } from "@remix-run/node";
-import { Link, useLoaderData } from "@remix-run/react";
+import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
+import { Form, Link, useActionData, useLoaderData, useNavigation } from "@remix-run/react";
 import {
   Page,
   Layout,
@@ -12,6 +12,7 @@ import {
   InlineStack,
   ProgressBar,
   Banner,
+  Button,
 } from "@shopify/polaris";
 import { TitleBar } from "@shopify/app-bridge-react";
 
@@ -29,7 +30,12 @@ import { syncPendingDraftOrders } from "../lib/orders.server";
 import { processBirthdayBonuses } from "../lib/bonus-rules.server";
 import { backfillMissingTiers } from "../lib/tier-engine.server";
 import { processPointsExpiry } from "../lib/expiry-engine.server";
-import { getPointsSetupState } from "../lib/points-setup.server";
+import {
+  getPointsSetupState,
+  markPointsSetupCompleted,
+} from "../lib/points-setup.server";
+import { backfillRecentOrders } from "../lib/klaviyo-backfill.server";
+import { getShopCurrencyCode } from "../lib/shop-currency.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { admin, session } = await authenticate.admin(request);
@@ -80,6 +86,32 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     stats,
     activity,
   };
+};
+
+export const action = async ({ request }: ActionFunctionArgs) => {
+  const { admin, session } = await authenticate.admin(request);
+  const store = await getOrEnsureStoreByDomain(session.shop);
+  const form = await request.formData();
+  const intent = String(form.get("intent") ?? "");
+
+  try {
+    if (intent === "backfill_orders") {
+      const currencyCode = await getShopCurrencyCode(admin);
+      await markPointsSetupCompleted({
+        storeId: store.id,
+        shopCurrency: currencyCode,
+      });
+      const result = await backfillRecentOrders({ admin, store, days: 60 });
+      return { ok: true as const, intent, result };
+    }
+    return { ok: false as const, error: "Unknown action" };
+  } catch (error) {
+    captureException(error, { scope: "dashboard.backfill", shop: session.shop });
+    return {
+      ok: false as const,
+      error: error instanceof Error ? error.message : "Backfill failed",
+    };
+  }
 };
 
 const numberFormatter = new Intl.NumberFormat("en-US");
@@ -219,6 +251,9 @@ function RecentActivity({ activity }: { activity: ActivityItem[] }) {
 
 export default function Dashboard() {
   const data = useLoaderData<typeof loader>();
+  const actionData = useActionData<typeof action>();
+  const navigation = useNavigation();
+  const busy = navigation.state !== "idle";
 
   if (!data.stats) {
     return (
@@ -237,28 +272,54 @@ export default function Dashboard() {
   }
 
   const { stats, activity, programPaused, storeName } = data;
+  const needsBackfill = !data.backfillCompletedAt;
 
   return (
     <Page title="Dashboard" subtitle={storeName ?? data.shop}>
       <TitleBar title={data.brandName} />
       <BlockStack gap="400">
-        {!data.setupCompletedAt ? (
-          <Banner tone="warning" title="Configure points rates">
+        {actionData?.ok && actionData.intent === "backfill_orders" ? (
+          <Banner tone="success" title="60-day import finished">
             <p>
-              Go to <Link to="/app/program">Program</Link> to set earn/redeem
-              rates for your shop currency, then run the 60-day order import.
-              Until rates are saved, draft orders will not auto-award points.
-            </p>
-          </Banner>
-        ) : !data.backfillCompletedAt ? (
-          <Banner tone="info" title="Import historical orders">
-            <p>
-              Rates are saved. On <Link to="/app/program">Program</Link>, run
-              &quot;Import last 60 days of orders&quot; so past customers get
-              points.
+              Scanned {actionData.result.scanned} orders · Awarded{" "}
+              {actionData.result.awarded} · Skipped {actionData.result.skipped}
+              {actionData.result.errors.length > 0
+                ? ` · ${actionData.result.errors.length} errors`
+                : ""}
+              . Refresh to see updated member counts.
             </p>
           </Banner>
         ) : null}
+
+        {actionData && !actionData.ok ? (
+          <Banner tone="critical" title="Import failed">
+            <p>{actionData.error}</p>
+          </Banner>
+        ) : null}
+
+        {needsBackfill ? (
+          <Card>
+            <BlockStack gap="300">
+              <Text as="h2" variant="headingMd">
+                Import last 60 days of orders
+              </Text>
+              <Text as="p" variant="bodySm" tone="subdued">
+                Right now only customers who already earned points are shown
+                (currently 1). Click below to scan paid Shopify orders from the
+                last 60 days and award points. Refreshing alone does not import
+                anyone. Optional: set earn/redeem rates on{" "}
+                <Link to="/app/program">Program</Link> first.
+              </Text>
+              <Form method="post">
+                <input type="hidden" name="intent" value="backfill_orders" />
+                <Button submit variant="primary" loading={busy}>
+                  Run 60-day order import
+                </Button>
+              </Form>
+            </BlockStack>
+          </Card>
+        ) : null}
+
         {programPaused ? (
           <Banner tone="warning" title="Program paused">
             <p>Point earning for new orders is currently disabled.</p>
