@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
-import { Form, useActionData, useLoaderData, useNavigation } from "@remix-run/react";
+import { Form, useActionData, useFetcher, useLoaderData, useNavigation } from "@remix-run/react";
 import {
   Page,
   Layout,
@@ -52,14 +52,20 @@ import {
   recalculatePurchasePointsForRate,
 } from "../lib/points-setup.server";
 import { backfillRecentOrders } from "../lib/klaviyo-backfill.server";
+import {
+  getTierResyncJob,
+  processTierResyncBatch,
+  startTierResyncJob,
+} from "../lib/tier-resync.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { admin, session } = await authenticate.admin(request);
   const store = await getOrEnsureStoreByDomain(session.shop);
-  const [program, currencyCode, setup] = await Promise.all([
+  const [program, currencyCode, setup, tierResync] = await Promise.all([
     getProgramData(store.id),
     getShopCurrencyCode(admin),
     getPointsSetupState(store.id),
+    getTierResyncJob(store.id),
   ]);
 
   return {
@@ -68,6 +74,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     currencyLabel: currencyUnitLabel(currencyCode),
     setupCompletedAt: setup.setupCompletedAt,
     backfillCompletedAt: setup.backfillCompletedAt,
+    tierResync,
   };
 };
 
@@ -108,9 +115,33 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     case "rules":
       await updateRules(store.id, form);
       break;
-    case "tiers":
+    case "tiers": {
       await updateTiers(store.id, form);
+      if (form.get("queue_tier_resync") === "on") {
+        await startTierResyncJob(store.id);
+        const batch = await processTierResyncBatch({
+          storeId: store.id,
+          shopDomain: store.shop_domain,
+        });
+        return { ok: true, intent, tierResyncBatch: batch };
+      }
       break;
+    }
+    case "start_tier_resync": {
+      await startTierResyncJob(store.id);
+      const batch = await processTierResyncBatch({
+        storeId: store.id,
+        shopDomain: store.shop_domain,
+      });
+      return { ok: true, intent, tierResyncBatch: batch };
+    }
+    case "process_tier_resync": {
+      const batch = await processTierResyncBatch({
+        storeId: store.id,
+        shopDomain: store.shop_domain,
+      });
+      return { ok: true, intent, tierResyncBatch: batch };
+    }
     case "redemptions":
       await updateRedemptions(store.id, form);
       break;
@@ -372,6 +403,7 @@ function TiersSection({ tiers }: { tiers: TierRow[] }) {
       ]),
     ),
   );
+  const [queueResync, setQueueResync] = useState(true);
 
   return (
     <Form method="post">
@@ -456,6 +488,15 @@ function TiersSection({ tiers }: { tiers: TierRow[] }) {
               );
             })}
           </BlockStack>
+          <Checkbox
+            label="After save, resync all customer tiers (batched)"
+            helpText="Safe for large member lists — runs in batches of ~75 and continues in the background. Manual tier overrides are skipped."
+            checked={queueResync}
+            onChange={setQueueResync}
+          />
+          {queueResync ? (
+            <input type="hidden" name="queue_tier_resync" value="on" />
+          ) : null}
           <InlineStack align="end">
             <Button submit variant="primary">
               Save Tiers
@@ -466,6 +507,86 @@ function TiersSection({ tiers }: { tiers: TierRow[] }) {
     </Form>
   );
 }
+
+import type {
+  TierResyncBatchResult,
+  TierResyncJob,
+} from "../lib/tier-resync.server";
+
+function TierResyncPanel({ job }: { job: TierResyncJob }) {
+  const fetcher = useFetcher<{
+    ok: boolean;
+    intent?: string;
+    tierResyncBatch?: TierResyncBatchResult;
+    error?: string;
+  }>();
+  const busy = fetcher.state !== "idle";
+
+  const latestBatch =
+    fetcher.data?.ok && fetcher.data.tierResyncBatch
+      ? fetcher.data.tierResyncBatch
+      : null;
+
+  const status = latestBatch?.status ?? job.status;
+  const processed = latestBatch?.totalProcessed ?? job.processed;
+  const changed = latestBatch?.totalChanged ?? job.changed;
+  const isRunning = job.status === "running";
+
+  useEffect(() => {
+    if (!isRunning) return;
+    if (fetcher.state !== "idle") return;
+    if (fetcher.data?.ok === false) return;
+
+    const timer = window.setTimeout(() => {
+      fetcher.submit(
+        { intent: "process_tier_resync" },
+        { method: "post" },
+      );
+    }, 250);
+
+    return () => window.clearTimeout(timer);
+  }, [isRunning, job.processed, job.cursor, fetcher.state, fetcher.data?.ok]);
+
+  return (
+    <Card>
+      <BlockStack gap="300">
+        <InlineStack align="space-between" blockAlign="center">
+          <Text as="h2" variant="headingMd">
+            Customer tier resync
+          </Text>
+          {status === "running" ? (
+            <Badge tone="attention">Running</Badge>
+          ) : status === "done" ? (
+            <Badge tone="success">Done</Badge>
+          ) : (
+            <Badge>Idle</Badge>
+          )}
+        </InlineStack>
+        <Text as="p" variant="bodySm" tone="subdued">
+          Recalculates automatic tiers from spend against current thresholds and
+          syncs Shopify tags. Runs in batches (~75 members) so large stores do
+          not time out. Continues while this page is open; opening Dashboard
+          also advances the job.
+        </Text>
+        <Text as="p" variant="bodySm">
+          Processed {processed.toLocaleString("en-US")} · Tier changed{" "}
+          {changed.toLocaleString("en-US")}
+        </Text>
+        {job.lastError || fetcher.data?.error ? (
+          <Banner tone="critical">
+            <p>{fetcher.data?.error ?? job.lastError}</p>
+          </Banner>
+        ) : null}
+        <Form method="post">
+          <input type="hidden" name="intent" value="start_tier_resync" />
+          <Button submit loading={busy || isRunning} disabled={isRunning}>
+            {isRunning ? "Resync in progress…" : "Start full tier resync"}
+          </Button>
+        </Form>
+      </BlockStack>
+    </Card>
+  );
+};
 
 type RedemptionState = Record<
   string,
@@ -850,6 +971,19 @@ export default function Program() {
         shopify.toast.show(
           `Rates saved · ${actionData.recalc.adjusted} balances adjusted`,
         );
+      } else if (
+        (actionData.intent === "tiers" ||
+          actionData.intent === "start_tier_resync" ||
+          actionData.intent === "process_tier_resync") &&
+        "tierResyncBatch" in actionData &&
+        actionData.tierResyncBatch
+      ) {
+        const b = actionData.tierResyncBatch;
+        shopify.toast.show(
+          b.done
+            ? `Tier resync done · ${b.totalChanged} updated / ${b.totalProcessed} scanned`
+            : `Tier resync… ${b.totalProcessed} processed`,
+        );
       } else {
         shopify.toast.show("Saved");
       }
@@ -905,7 +1039,10 @@ export default function Program() {
           </BlockStack>
         </Layout.Section>
         <Layout.Section variant="oneThird">
-          <TiersSection tiers={data.tiers} />
+          <BlockStack gap="400">
+            <TiersSection tiers={data.tiers} />
+            <TierResyncPanel job={data.tierResync} />
+          </BlockStack>
         </Layout.Section>
       </Layout>
     </Page>

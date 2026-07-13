@@ -36,16 +36,29 @@ import {
 } from "../lib/points-setup.server";
 import { backfillRecentOrders } from "../lib/klaviyo-backfill.server";
 import { getShopCurrencyCode } from "../lib/shop-currency.server";
+import {
+  getTierResyncJob,
+  processTierResyncBatch,
+} from "../lib/tier-resync.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { admin, session } = await authenticate.admin(request);
   const store = await getOrEnsureStoreByDomain(session.shop);
-  const setup = await getPointsSetupState(store.id);
+  const [setup, tierResync] = await Promise.all([
+    getPointsSetupState(store.id),
+    getTierResyncJob(store.id),
+  ]);
 
   try {
     // Wait until rates are saved on Program so draft sync doesn't award at default 1:1 by surprise.
     if (setup.setupCompletedAt) {
       await syncPendingDraftOrders({ admin, store, limit: 25 });
+    }
+    if (tierResync.status === "running") {
+      await processTierResyncBatch({
+        storeId: store.id,
+        shopDomain: store.shop_domain,
+      });
     }
     await processBirthdayBonuses(store.id);
     await processPointsExpiry(store.id);
